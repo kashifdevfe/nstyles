@@ -21,7 +21,7 @@ const server = new ApolloServer({
 // Start server
 await server.start();
 
-// Middleware
+// Middleware - CORS Configuration
 const corsOptions = {
     origin: function (origin, callback) {
         // Allow requests with no origin (like mobile apps or curl requests)
@@ -29,18 +29,23 @@ const corsOptions = {
         
         const allowedOrigins = [
             process.env.FRONTEND_URL,
-            process.env.NEXT_PUBLIC_GRAPHQL_URL?.replace('/graphql', ''),
+            'https://nstyle-test.vercel.app',
+            'https://nstyles-test.vercel.app',
             'http://localhost:3000',
             'http://localhost:3001',
         ].filter(Boolean);
         
-        if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+        // Allow if in allowed list, or allow all in production
+        if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
             callback(null, true);
         } else {
-            callback(null, true); // Allow all origins in production for Railway
+            // In production, allow all origins (Railway/Vercel)
+            callback(null, true);
         }
     },
     credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
 };
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
