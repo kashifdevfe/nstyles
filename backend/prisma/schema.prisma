@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  phone     String?
+  role      String   // "admin" or "barber"
+  status    String   @default("active") // "active" or "inactive"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  entries   Entry[]  @relation("BarberEntries")
+  shopId    String?
+  shop      Shop?    @relation(fields: [shopId], references: [id])
+}
+
+model Shop {
+  id        String   @id @default(uuid())
+  name      String
+  address   String
+  phone     String?
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  barbers   User[]
+  entries   Entry[]
+}
+
+model Service {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  price     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  entryServices EntryService[]
+}
+
+model Entry {
+  id            String   @id @default(uuid())
+  clientNumber  String   @unique
+  barberId      String
+  shopId        String?
+  date          DateTime
+  time          String
+  paymentMethod String   // "Cash", "Card", "Apple Pay", "Other"
+  totalAmount   Float
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  barber        User     @relation("BarberEntries", fields: [barberId], references: [id], onDelete: Cascade)
+  shop          Shop?    @relation(fields: [shopId], references: [id])
+  entryServices EntryService[]
+}
+
+model EntryService {
+  id        String   @id @default(uuid())
+  entryId   String
+  serviceId String
+  price     Float    // Store price at time of entry
+  createdAt DateTime @default(now())
+  
+  entry     Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  
+  @@unique([entryId, serviceId])
+}
