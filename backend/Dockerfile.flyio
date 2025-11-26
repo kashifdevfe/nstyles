@@ -1,4 +1,4 @@
-# Dockerfile for Fly.io, Koyeb, or any Docker-based platform
+# Dockerfile for Fly.io, Koyeb deployments only (NOT for Railway - Railway uses Nixpacks)
 FROM node:18-alpine
 
 WORKDIR /app
