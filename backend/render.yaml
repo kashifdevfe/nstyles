@@ -1,0 +1,29 @@
+# Render configuration file
+# Place this in the root directory, not backend folder
+# Render will use this when deploying from root
+
+services:
+  - type: web
+    name: barber-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false  # Set this in Render dashboard
+      - key: JWT_SECRET
+        sync: false  # Set this in Render dashboard
+      - key: FRONTEND_URL
+        sync: false  # Set this in Render dashboard
+
+databases:
+  - name: barber-postgres
+    databaseName: barber
+    user: barber
+    plan: free  # 90 days free, then $7/month
+
