@@ -1,9 +1,10 @@
 # Railway Configuration
 # IMPORTANT: In Railway dashboard, set Root Directory to 'backend' for backend service
-# Using Dockerfile for reliable builds
+# Using Nixpacks (no Docker needed)
 
 [build]
-builder = "DOCKERFILE"
+builder = "NIXPACKS"
 
 [deploy]
+startCommand = "npm run prisma:generate && npx prisma migrate deploy && npm start"
 
