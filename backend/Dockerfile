@@ -4,10 +4,11 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Copy package files first (for better Docker layer caching)
-COPY package*.json ./
+COPY package.json package-lock.json* ./
 
 # Install ALL dependencies (including devDependencies for Prisma)
-RUN npm ci
+# Use npm install instead of npm ci for better compatibility
+RUN npm install
 
 # Copy application files
 COPY . .
