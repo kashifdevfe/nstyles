@@ -21,32 +21,16 @@ const server = new ApolloServer({
 // Start server
 await server.start();
 
-// Middleware - CORS Configuration
+// Middleware - CORS Configuration (Allow all origins in production)
 const corsOptions = {
     origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
-        
-        // Allow all Vercel URLs (production and preview deployments)
-        const isVercel = origin.includes('.vercel.app');
-        
-        // Allow localhost for development
-        const isLocalhost = origin.startsWith('http://localhost:');
-        
-        // Allow specific frontend URL from env
-        const isAllowedFrontend = process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL;
-        
-        // Allow if Vercel, localhost, or matches FRONTEND_URL
-        if (isVercel || isLocalhost || isAllowedFrontend || process.env.NODE_ENV !== 'production') {
-            callback(null, true);
-        } else {
-            // In production, allow all origins as fallback
-            callback(null, true);
-        }
+        // In production, allow all origins (Vercel preview URLs change frequently)
+        callback(null, true);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Type', 'Authorization'],
 };
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
