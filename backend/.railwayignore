@@ -1,8 +1,5 @@
 # Railway ignore file
-# Prevent Railway from detecting Dockerfile
-Dockerfile
-Dockerfile.flyio
-*.dockerfile
+# Keep Dockerfile.flyio for Fly.io deployments
 
 # Development files
 node_modules
