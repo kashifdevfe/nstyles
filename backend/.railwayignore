@@ -1,5 +1,7 @@
 # Railway ignore file
-# Keep Dockerfile.flyio for Fly.io deployments
+# Ignore Dockerfile so Railway uses Nixpacks instead
+Dockerfile
+Dockerfile.*
 
 # Development files
 node_modules
