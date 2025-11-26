@@ -27,19 +27,20 @@ const corsOptions = {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
         
-        const allowedOrigins = [
-            process.env.FRONTEND_URL,
-            'https://nstyle-test.vercel.app',
-            'https://nstyles-test.vercel.app',
-            'http://localhost:3000',
-            'http://localhost:3001',
-        ].filter(Boolean);
+        // Allow all Vercel URLs (production and preview deployments)
+        const isVercel = origin.includes('.vercel.app');
         
-        // Allow if in allowed list, or allow all in production
-        if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+        // Allow localhost for development
+        const isLocalhost = origin.startsWith('http://localhost:');
+        
+        // Allow specific frontend URL from env
+        const isAllowedFrontend = process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL;
+        
+        // Allow if Vercel, localhost, or matches FRONTEND_URL
+        if (isVercel || isLocalhost || isAllowedFrontend || process.env.NODE_ENV !== 'production') {
             callback(null, true);
         } else {
-            // In production, allow all origins (Railway/Vercel)
+            // In production, allow all origins as fallback
             callback(null, true);
         }
     },
