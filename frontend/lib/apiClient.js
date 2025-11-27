@@ -1,9 +1,17 @@
 // REST API Client to replace Apollo Client
+// Note: In Next.js, NEXT_PUBLIC_* env vars are available at build time
+// Make sure to set NEXT_PUBLIC_API_URL in your Vercel environment variables
 const getApiUrl = () => {
-    if (typeof window !== 'undefined') {
-        return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    // Next.js makes NEXT_PUBLIC_* vars available in the browser
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    
+    if (!apiUrl) {
+        console.warn('NEXT_PUBLIC_API_URL is not set! Using default localhost. Please set this in your Vercel environment variables.');
+        return 'http://localhost:4000';
     }
-    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    
+    // Remove trailing slash if present
+    return apiUrl.replace(/\/$/, '');
 };
 
 // Helper function to get auth token
