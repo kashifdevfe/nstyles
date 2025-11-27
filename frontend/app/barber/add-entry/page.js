@@ -1,32 +1,12 @@
 'use client';
 
 import BarberLayout from '../../../components/BarberLayout';
-import { useQuery, useMutation, gql } from '@apollo/client';
+import api from '../../../lib/apiClient';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { useState, useEffect } from 'react';
-
-const GET_SERVICES = gql`
-  query GetServices {
-    services {
-      id
-      name
-      price
-    }
-  }
-`;
-
-const CREATE_ENTRY = gql`
-  mutation CreateEntry($barberId: ID!, $serviceIds: [ID!]!, $date: String!, $time: String!, $paymentMethod: String!) {
-    createEntry(barberId: $barberId, serviceIds: $serviceIds, date: $date, time: $time, paymentMethod: $paymentMethod) {
-      id
-      clientNumber
-      totalAmount
-    }
-  }
-`;
 
 const validationSchema = Yup.object({
     date: Yup.string().required('Date is required'),
@@ -42,11 +22,24 @@ export default function AddEntryPage() {
     const [totalAmount, setTotalAmount] = useState(0);
     const [success, setSuccess] = useState('');
     const [error, setError] = useState('');
+    const [services, setServices] = useState([]);
+    const [servicesLoading, setServicesLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
 
-    const { data: servicesData, loading: servicesLoading } = useQuery(GET_SERVICES);
-    const [createEntry, { loading }] = useMutation(CREATE_ENTRY);
-
-    const services = servicesData?.services || [];
+    useEffect(() => {
+        const fetchServices = async () => {
+            try {
+                setServicesLoading(true);
+                const data = await api.getServices();
+                setServices(data || []);
+            } catch (err) {
+                setError('Failed to load services');
+            } finally {
+                setServicesLoading(false);
+            }
+        };
+        fetchServices();
+    }, []);
 
     useEffect(() => {
         const total = selectedServices.reduce((sum, serviceId) => {
@@ -60,18 +53,17 @@ export default function AddEntryPage() {
         try {
             setError('');
             setSuccess('');
-            const { data } = await createEntry({
-                variables: {
-                    barberId: user.id,
-                    serviceIds: values.serviceIds,
-                    date: values.date,
-                    time: values.time,
-                    paymentMethod: values.paymentMethod,
-                },
+            setLoading(true);
+            const data = await api.createEntry({
+                barberId: user.id,
+                serviceIds: values.serviceIds,
+                date: values.date,
+                time: values.time,
+                paymentMethod: values.paymentMethod,
             });
             await new Promise(resolve => setTimeout(resolve, 500)); // Show loader
 
-            setSuccess(`Entry Created! Client Number: ${data.createEntry.clientNumber} | Total: £${data.createEntry.totalAmount.toFixed(2)}`);
+            setSuccess(`Entry Created! Client Number: ${data.clientNumber} | Total: £${data.totalAmount.toFixed(2)}`);
             resetForm();
             setSelectedServices([]);
             setTotalAmount(0);
@@ -82,6 +74,7 @@ export default function AddEntryPage() {
         } catch (err) {
             setError(err.message || 'Error creating entry');
         } finally {
+            setLoading(false);
             setSubmitting(false);
         }
     };

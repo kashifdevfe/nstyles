@@ -2,46 +2,34 @@
 
 import { MdList, MdAdd } from 'react-icons/md';
 import BarberLayout from '../../../components/BarberLayout';
-import { useQuery, gql } from '@apollo/client';
+import api from '../../../lib/apiClient';
 import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
-import { useEffect } from 'react';
-
-const GET_ENTRIES = gql`
-  query GetEntries($barberId: ID) {
-    entries(barberId: $barberId) {
-      id
-      clientNumber
-      date
-      time
-      totalAmount
-      paymentMethod
-      entryServices {
-        service {
-          name
-        }
-      }
-    }
-  }
-`;
+import { useEffect, useState } from 'react';
 
 export default function BarberDashboard() {
     const router = useRouter();
     const { user } = useSelector((state) => state.auth);
-
-    const { data, loading, error, refetch } = useQuery(GET_ENTRIES, {
-        variables: { barberId: user?.id },
-        skip: !user?.id,
-    });
+    const [entries, setEntries] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
-        const fetchData = async () => {
-            if (user?.id) {
-                await refetch();
+        const fetchEntries = async () => {
+            if (!user?.id) return;
+            try {
+                setLoading(true);
+                setError(null);
+                const data = await api.getEntries({ barberId: user.id });
+                setEntries(data || []);
+            } catch (err) {
+                setError(err);
+            } finally {
+                setLoading(false);
             }
         };
-        fetchData();
-    }, [user?.id, refetch]);
+        fetchEntries();
+    }, [user?.id]);
 
     if (loading) {
         return (
@@ -57,13 +45,11 @@ export default function BarberDashboard() {
         return (
             <BarberLayout currentPage="dashboard">
                 <div className="max-w-7xl mx-auto py-8 px-4">
-                    <p className="text-red-500">Error loading entries: {error.message}</p>
+                    <p className="text-red-500">Error loading entries: {error.message || 'Failed to load entries'}</p>
                 </div>
             </BarberLayout>
         );
     }
-
-    const entries = data?.entries || [];
 
     return (
         <BarberLayout currentPage="dashboard">

@@ -2,46 +2,10 @@
 
 import { MdAdd, MdEdit, MdDelete } from 'react-icons/md';
 import AdminLayout from '../../../components/AdminLayout';
-import { useQuery, useMutation, gql } from '@apollo/client';
+import api from '../../../lib/apiClient';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
-import { useState } from 'react';
-
-const GET_SERVICES = gql`
-  query GetServices {
-    services {
-      id
-      name
-      price
-    }
-  }
-`;
-
-const CREATE_SERVICE = gql`
-  mutation CreateService($name: String!, $price: Float!) {
-    createService(name: $name, price: $price) {
-      id
-      name
-      price
-    }
-  }
-`;
-
-const UPDATE_SERVICE = gql`
-  mutation UpdateService($id: ID!, $name: String, $price: Float) {
-    updateService(id: $id, name: $name, price: $price) {
-      id
-      name
-      price
-    }
-  }
-`;
-
-const DELETE_SERVICE = gql`
-  mutation DeleteService($id: ID!) {
-    deleteService(id: $id)
-  }
-`;
+import { useState, useEffect } from 'react';
 
 const validationSchema = Yup.object({
     name: Yup.string().required('Service name is required'),
@@ -55,35 +19,52 @@ export default function ServicesPage() {
     const [editingService, setEditingService] = useState(null);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [services, setServices] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [createLoading, setCreateLoading] = useState(false);
+    const [updateLoading, setUpdateLoading] = useState(false);
+    const [deleteLoading, setDeleteLoading] = useState(false);
 
-    const { data, loading, refetch } = useQuery(GET_SERVICES);
-    const [createService, { loading: createLoading }] = useMutation(CREATE_SERVICE);
-    const [updateService, { loading: updateLoading }] = useMutation(UPDATE_SERVICE);
-    const [deleteService, { loading: deleteLoading }] = useMutation(DELETE_SERVICE);
-
-    const services = data?.services || [];
+    useEffect(() => {
+        const fetchServices = async () => {
+            try {
+                setLoading(true);
+                const data = await api.getServices();
+                setServices(data || []);
+            } catch (err) {
+                setError('Failed to load services');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchServices();
+    }, []);
 
     const handleSubmit = async (values, { setSubmitting }) => {
         try {
             setError('');
             setSuccess('');
             if (editingService) {
-                await updateService({
-                    variables: { id: editingService.id, ...values },
-                });
+                setUpdateLoading(true);
+                await api.updateService(editingService.id, values);
                 await new Promise(resolve => setTimeout(resolve, 500)); // Show loader
                 setSuccess('Service Updated');
             } else {
-                await createService({ variables: values });
+                setCreateLoading(true);
+                await api.createService(values);
                 await new Promise(resolve => setTimeout(resolve, 500)); // Show loader
                 setSuccess('Service Created');
             }
-            await refetch();
+            // Refetch services
+            const data = await api.getServices();
+            setServices(data || []);
             setIsModalOpen(false);
             setEditingService(null);
         } catch (err) {
             setError(err.message || 'Error');
         } finally {
+            setCreateLoading(false);
+            setUpdateLoading(false);
             setSubmitting(false);
         }
     };
@@ -98,31 +79,20 @@ export default function ServicesPage() {
         try {
             setError('');
             setSuccess('');
-            const result = await deleteService({ 
-                variables: { id: serviceToDelete.id },
-                errorPolicy: 'all'
-            });
-            
-            if (result.errors && result.errors.length > 0) {
-                const errorMessage = result.errors[0]?.message || 'Failed to delete service';
-                setError(errorMessage);
-                setIsDeleteModalOpen(false);
-                return;
-            }
-            
+            setDeleteLoading(true);
+            await api.deleteService(serviceToDelete.id);
             await new Promise(resolve => setTimeout(resolve, 500)); // Show loader
             setSuccess('Service Deleted');
-            await refetch();
+            // Refetch services
+            const data = await api.getServices();
+            setServices(data || []);
             setIsDeleteModalOpen(false);
             setServiceToDelete(null);
         } catch (err) {
-            // Extract error message from GraphQL error
-            const errorMessage = err?.graphQLErrors?.[0]?.message || 
-                                err?.networkError?.result?.errors?.[0]?.message ||
-                                err?.message || 
-                                'Failed to delete service. It may be in use.';
-            setError(errorMessage);
+            setError(err.message || 'Failed to delete service. It may be in use.');
             setIsDeleteModalOpen(false);
+        } finally {
+            setDeleteLoading(false);
         }
     };
 

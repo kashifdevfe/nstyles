@@ -1,9 +1,7 @@
 'use client';
 
-import { ApolloProvider } from '@apollo/client';
 import { Provider } from 'react-redux';
 import { store } from '../store/store';
-import client from '../lib/apolloClient';
 import AuthLoader from '../components/AuthLoader';
 import './globals.css';
 
@@ -15,11 +13,9 @@ export default function RootLayout({ children }) {
             </head>
             <body>
                 <Provider store={store}>
-                    <ApolloProvider client={client}>
-                        <AuthLoader>
-                            {children}
-                        </AuthLoader>
-                    </ApolloProvider>
+                    <AuthLoader>
+                        {children}
+                    </AuthLoader>
                 </Provider>
             </body>
         </html>

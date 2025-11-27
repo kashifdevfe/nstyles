@@ -3,27 +3,12 @@
 import { useRouter } from 'next/navigation';
 import { useDispatch } from 'react-redux';
 import { setCredentials } from '../../store/authSlice';
-import { useMutation, gql } from '@apollo/client';
+import api from '../../lib/apiClient';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { MdAdminPanelSettings } from 'react-icons/md';
 import { useState } from 'react';
 import Image from 'next/image';
-
-const LOGIN_MUTATION = gql`
-  mutation Login($email: String!, $password: String!) {
-    login(email: $email, password: $password) {
-      token
-      user {
-        id
-        name
-        email
-        role
-        status
-      }
-    }
-  }
-`;
 
 const validationSchema = Yup.object({
     email: Yup.string().email('Invalid email').required('Email is required'),
@@ -33,27 +18,27 @@ const validationSchema = Yup.object({
 export default function AdminLogin() {
     const router = useRouter();
     const dispatch = useDispatch();
-    const [login, { loading }] = useMutation(LOGIN_MUTATION);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     const handleSubmit = async (values, { setSubmitting }) => {
         try {
             setError('');
-            const { data } = await login({
-                variables: values,
-            });
+            setLoading(true);
+            const data = await api.login(values.email, values.password);
             await new Promise(resolve => setTimeout(resolve, 500)); // Show loader
 
-            if (data.login.user.role !== 'admin') {
+            if (data.user.role !== 'admin') {
                 setError('Only admins can access this panel');
                 return;
             }
 
-            dispatch(setCredentials(data.login));
+            dispatch(setCredentials(data));
             router.push('/admin/dashboard');
         } catch (err) {
             setError(err.message || 'Login failed');
         } finally {
+            setLoading(false);
             setSubmitting(false);
         }
     };
