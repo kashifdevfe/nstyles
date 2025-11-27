@@ -23,20 +23,30 @@ await server.start();
 
 // CORS Configuration - Allow all origins for production
 // Using cors package for proper preflight handling
-app.use(cors({
+const corsOptions = {
     origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
-        // Allow all origins in production - reflect the requesting origin
-        callback(null, origin);
+        try {
+            // Allow requests with no origin (like mobile apps or curl requests)
+            if (!origin) {
+                return callback(null, true);
+            }
+            // Allow all origins in production - reflect the requesting origin
+            // This is required when credentials: true
+            callback(null, origin);
+        } catch (error) {
+            console.error('CORS origin callback error:', error);
+            callback(null, true); // Fallback to allow all on error
+        }
     },
     credentials: true,
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    exposedHeaders: ['Content-Type'],
     preflightContinue: false,
-    optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
-}));
+    optionsSuccessStatus: 200 // Use 200 instead of 204 for better compatibility
+};
 
+app.use(cors(corsOptions));
 app.use(bodyParser.json());
 
 // GraphQL endpoint with context
