@@ -1,28 +1,22 @@
 import express from 'express';
-import { ApolloServer } from '@apollo/server';
-import { expressMiddleware } from '@apollo/server/express4';
 import bodyParser from 'body-parser';
 import cors from 'cors';
-import { typeDefs } from './graphql/schema.js';
-import { resolvers, getUser } from './graphql/resolvers.js';
 import dotenv from 'dotenv';
+
+// Import routes
+import authRoutes from './routes/auth.js';
+import userRoutes from './routes/users.js';
+import serviceRoutes from './routes/services.js';
+import shopRoutes from './routes/shops.js';
+import entryRoutes from './routes/entries.js';
+import reportRoutes from './routes/reports.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// Create Apollo Server
-const server = new ApolloServer({
-    typeDefs,
-    resolvers,
-});
-
-// Start server
-await server.start();
-
 // CORS Configuration - Allow all origins for production
-// Using cors package for proper preflight handling
 const corsOptions = {
     origin: function (origin, callback) {
         try {
@@ -39,31 +33,45 @@ const corsOptions = {
         }
     },
     credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
     exposedHeaders: ['Content-Type'],
     preflightContinue: false,
     optionsSuccessStatus: 200 // Use 200 instead of 204 for better compatibility
 };
 
+// Middleware
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// GraphQL endpoint with context
-app.use(
-    '/graphql',
-    expressMiddleware(server, {
-        context: async ({ req }) => {
-            const token = req.headers.authorization || '';
-            const user = getUser(token.replace('Bearer ', ''));
-            return { user };
-        },
-    })
-);
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/services', serviceRoutes);
+app.use('/api/shops', shopRoutes);
+app.use('/api/entries', entryRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'Barber Shop API is running' });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+    res.json({ 
+        message: 'Barber Shop API',
+        version: '1.0.0',
+        endpoints: {
+            auth: '/api/auth',
+            users: '/api/users',
+            services: '/api/services',
+            shops: '/api/shops',
+            entries: '/api/entries',
+            reports: '/api/reports'
+        }
+    });
 });
 
 // Handle favicon requests to prevent 404 errors
@@ -71,7 +79,21 @@ app.get('/favicon.ico', (req, res) => {
     res.status(204).end();
 });
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Error:', err);
+    res.status(err.status || 500).json({
+        error: err.message || 'Internal server error'
+    });
+});
+
+// 404 handler
+app.use((req, res) => {
+    res.status(404).json({ error: 'Route not found' });
+});
+
 app.listen(PORT, () => {
-    console.log(`🚀 Server ready at http://localhost:${PORT}/graphql`);
+    console.log(`🚀 Server ready at http://localhost:${PORT}`);
     console.log(`📊 Health check at http://localhost:${PORT}/health`);
+    console.log(`📚 API endpoints available at http://localhost:${PORT}/api`);
 });
