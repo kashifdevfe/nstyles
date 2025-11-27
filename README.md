@@ -1,6 +1,6 @@
 # N STYLES - Barber Shop Management System
 
-A modern, full-stack barber shop management system built with Next.js, GraphQL, and PostgreSQL.
+A modern, full-stack barber shop management system built with Next.js, Express.js REST API, and PostgreSQL.
 
 ## Features
 
@@ -20,13 +20,13 @@ A modern, full-stack barber shop management system built with Next.js, GraphQL, 
 - React 18
 - Tailwind CSS
 - Redux Toolkit
-- Apollo Client
+- REST API Client
 - Recharts
 
 ### Backend
 - Node.js
 - Express.js
-- Apollo Server (GraphQL)
+- REST API
 - Prisma ORM
 - PostgreSQL
 - JWT Authentication
@@ -71,7 +71,7 @@ FRONTEND_URL="http://localhost:3000"
 
 **Frontend** (`frontend/.env.local`):
 ```env
-NEXT_PUBLIC_GRAPHQL_URL="http://localhost:4000/graphql"
+NEXT_PUBLIC_API_URL="http://localhost:4000"
 ```
 
 5. Set up the database:
@@ -115,9 +115,9 @@ See [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md) for detailed Railway deploy
 ```
 Barber/
 ├── backend/
-│   ├── graphql/
-│   │   ├── schema.js       # GraphQL schema
-│   │   └── resolvers.js    # GraphQL resolvers
+│   ├── routes/             # REST API routes
+│   ├── middleware/         # Auth middleware
+│   ├── utils/              # Helper utilities
 │   ├── prisma/
 │   │   ├── schema.prisma   # Database schema
 │   │   └── migrations/     # Database migrations
@@ -125,7 +125,7 @@ Barber/
 ├── frontend/
 │   ├── app/                # Next.js app directory
 │   ├── components/         # React components
-│   ├── lib/                # Utilities
+│   ├── lib/                # Utilities (API client)
 │   └── store/              # Redux store
 └── README.md
 ```

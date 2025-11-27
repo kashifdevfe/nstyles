@@ -1,43 +1,9 @@
 'use client';
 
 import AdminLayout from '../../../components/AdminLayout';
-import { useQuery, gql } from '@apollo/client';
+import { api } from '../../../lib/apiClient';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import { useState } from 'react';
-
-const GET_REPORTS = gql`
-  query GetReports {
-    dailyReport {
-      totalCustomers
-      totalRevenue
-      cashPayments
-      cardPayments
-      applePayPayments
-      otherPayments
-      serviceUsage {
-        serviceName
-        count
-      }
-    }
-    weeklyReport {
-      totalRevenue
-      mostUsedService
-      dailySales {
-        date
-        revenue
-      }
-    }
-    monthlyReport {
-      totalRevenue
-      topBarber
-      mostRequestedService
-      dailySales {
-        date
-        revenue
-      }
-    }
-  }
-`;
+import { useState, useEffect } from 'react';
 
 const CHART_COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#000000', '#f97316', '#14b8a6'];
 
@@ -52,7 +18,34 @@ const StatBox = ({ label, value, color = '#000000' }) => {
 
 export default function ReportsPage() {
     const [activeTab, setActiveTab] = useState('daily');
-    const { data, loading, error } = useQuery(GET_REPORTS);
+    const [dailyReport, setDailyReport] = useState(null);
+    const [weeklyReport, setWeeklyReport] = useState(null);
+    const [monthlyReport, setMonthlyReport] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        fetchReports();
+    }, []);
+
+    const fetchReports = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const [daily, weekly, monthly] = await Promise.all([
+                api.getDailyReport(),
+                api.getWeeklyReport(),
+                api.getMonthlyReport()
+            ]);
+            setDailyReport(daily);
+            setWeeklyReport(weekly);
+            setMonthlyReport(monthly);
+        } catch (err) {
+            setError(err.message || 'Failed to load reports');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -68,15 +61,11 @@ export default function ReportsPage() {
         return (
             <AdminLayout currentPage="reports">
                 <div className="max-w-7xl mx-auto py-8 px-4">
-                    <p className="text-red-500">Error loading reports: {error.message}</p>
+                    <p className="text-red-500">Error loading reports: {error}</p>
                 </div>
             </AdminLayout>
         );
     }
-
-    const dailyReport = data?.dailyReport;
-    const weeklyReport = data?.weeklyReport;
-    const monthlyReport = data?.monthlyReport;
 
     return (
         <AdminLayout currentPage="reports">

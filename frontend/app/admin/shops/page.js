@@ -2,56 +2,11 @@
 
 import { MdAdd, MdEdit, MdDelete, MdStore, MdPhone, MdLocationOn } from 'react-icons/md';
 import AdminLayout from '../../../components/AdminLayout';
-import { useQuery, useMutation, gql } from '@apollo/client';
+import { api } from '../../../lib/apiClient';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-
-const GET_SHOPS = gql`
-  query GetShops {
-    shops {
-      id
-      name
-      address
-      phone
-      image
-      barbers {
-        id
-        name
-      }
-      stats {
-        totalRevenue
-        totalEntries
-        barberCount
-      }
-    }
-  }
-`;
-
-const CREATE_SHOP = gql`
-  mutation CreateShop($name: String!, $address: String!, $phone: String, $image: String) {
-    createShop(name: $name, address: $address, phone: $phone, image: $image) {
-      id
-      name
-    }
-  }
-`;
-
-const UPDATE_SHOP = gql`
-  mutation UpdateShop($id: ID!, $name: String, $address: String, $phone: String, $image: String) {
-    updateShop(id: $id, name: $name, address: $address, phone: $phone, image: $image) {
-      id
-      name
-    }
-  }
-`;
-
-const DELETE_SHOP = gql`
-  mutation DeleteShop($id: ID!) {
-    deleteShop(id: $id)
-  }
-`;
 
 const ShopSchema = Yup.object().shape({
     name: Yup.string().required('Required'),
@@ -68,37 +23,48 @@ export default function ShopsPage() {
     const [editingShop, setEditingShop] = useState(null);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [shops, setShops] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const { data, loading, refetch } = useQuery(GET_SHOPS);
-    const [createShop, { loading: createLoading }] = useMutation(CREATE_SHOP);
-    const [updateShop, { loading: updateLoading }] = useMutation(UPDATE_SHOP);
-    const [deleteShop, { loading: deleteLoading }] = useMutation(DELETE_SHOP);
-
-    const handleSubmit = async (values, { setSubmitting, resetForm }) => {
+    const fetchShops = async () => {
         try {
+            setLoading(true);
+            const data = await api.getShops();
+            setShops(data || []);
+        } catch (err) {
+            setError(err.message || 'Failed to load shops');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchShops();
+    }, []);
+
+    const handleSubmit = async (values, { resetForm }) => {
+        try {
+            setIsSubmitting(true);
             setError('');
             setSuccess('');
             if (editingShop) {
-                await updateShop({
-                    variables: { id: editingShop.id, ...values },
-                });
-                await new Promise(resolve => setTimeout(resolve, 500)); // Show loader
+                await api.updateShop(editingShop.id, values);
+                await new Promise(resolve => setTimeout(resolve, 500));
                 setSuccess('Shop updated');
             } else {
-                await createShop({
-                    variables: values,
-                });
-                await new Promise(resolve => setTimeout(resolve, 500)); // Show loader
+                await api.createShop(values);
+                await new Promise(resolve => setTimeout(resolve, 500));
                 setSuccess('Shop created');
             }
-            await refetch();
+            await fetchShops();
             setIsModalOpen(false);
             resetForm();
             setEditingShop(null);
         } catch (err) {
             setError(err.message || 'Error');
         } finally {
-            setSubmitting(false);
+            setIsSubmitting(false);
         }
     };
 
@@ -110,19 +76,20 @@ export default function ShopsPage() {
     const handleDelete = async () => {
         if (!shopToDelete) return;
         try {
+            setIsSubmitting(true);
             setError('');
-            await deleteShop({ variables: { id: shopToDelete.id } });
-            await new Promise(resolve => setTimeout(resolve, 500)); // Show loader
+            await api.deleteShop(shopToDelete.id);
+            await new Promise(resolve => setTimeout(resolve, 500));
             setSuccess('Shop deleted');
-            await refetch();
+            await fetchShops();
             setIsDeleteModalOpen(false);
             setShopToDelete(null);
         } catch (err) {
             setError(err.message || 'Error');
+        } finally {
+            setIsSubmitting(false);
         }
     };
-
-    const isMutationLoading = createLoading || updateLoading || deleteLoading;
 
     if (loading) {
         return (
@@ -168,7 +135,7 @@ export default function ShopsPage() {
                     )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                        {data?.shops.map((shop) => (
+                        {shops.map((shop) => (
                             <div
                                 key={shop.id}
                                 className="bg-white rounded-xl shadow-lg overflow-hidden border border-secondary-500 transition-all active:scale-95 sm:hover:-translate-y-1 sm:hover:shadow-2xl cursor-pointer"
@@ -193,7 +160,7 @@ export default function ShopsPage() {
                                                     setEditingShop(shop);
                                                     setIsModalOpen(true);
                                                 }}
-                                                disabled={isMutationLoading}
+                                                disabled={isSubmitting}
                                                 className="p-2 bg-primary-900 text-white rounded-lg hover:bg-secondary-500 transition-colors disabled:opacity-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
                                             >
                                                 <MdEdit size={16} />
@@ -203,10 +170,10 @@ export default function ShopsPage() {
                                                     e.stopPropagation();
                                                     handleDeleteClick(shop);
                                                 }}
-                                                disabled={deleteLoading}
+                                                disabled={isSubmitting}
                                                 className="p-2 bg-primary-900 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
                                             >
-                                                {deleteLoading ? (
+                                                {isSubmitting ? (
                                                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                                 ) : (
                                                     <MdDelete size={16} />
@@ -262,7 +229,7 @@ export default function ShopsPage() {
                                     validationSchema={ShopSchema}
                                     onSubmit={handleSubmit}
                                 >
-                                    {({ errors, touched, isSubmitting }) => (
+                                    {({ errors, touched }) => (
                                         <Form>
                                             <div className="flex flex-col gap-4">
                                                 <Field name="name">
@@ -332,10 +299,10 @@ export default function ShopsPage() {
                                                 </Field>
                                                 <button
                                                     type="submit"
-                                                    disabled={isSubmitting || isMutationLoading}
+                                                    disabled={isSubmitting}
                                                     className="w-full bg-primary-900 text-white py-3 rounded-xl font-semibold hover:bg-primary-800 active:scale-95 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-4 min-h-[44px]"
                                                 >
-                                                    {isSubmitting || isMutationLoading ? (
+                                                    {isSubmitting ? (
                                                         <span className="flex items-center justify-center gap-2">
                                                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                                             {editingShop ? 'Updating...' : 'Creating...'}
@@ -365,10 +332,10 @@ export default function ShopsPage() {
                                 <div className="flex gap-3">
                                     <button
                                         onClick={handleDelete}
-                                        disabled={deleteLoading}
+                                        disabled={isSubmitting}
                                         className="flex-1 bg-red-600 text-white py-3 rounded-xl font-semibold hover:bg-red-700 active:scale-95 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                                     >
-                                        {deleteLoading ? (
+                                        {isSubmitting ? (
                                             <span className="flex items-center justify-center gap-2">
                                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                                 Deleting...
@@ -382,7 +349,7 @@ export default function ShopsPage() {
                                             setIsDeleteModalOpen(false);
                                             setShopToDelete(null);
                                         }}
-                                        disabled={deleteLoading}
+                                        disabled={isSubmitting}
                                         className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-300 active:scale-95 transition-colors disabled:opacity-50 min-h-[44px]"
                                     >
                                         Cancel

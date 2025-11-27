@@ -1,43 +1,10 @@
 'use client';
 
 import AdminLayout from '../../../../components/AdminLayout';
-import { useQuery, gql } from '@apollo/client';
+import { api } from '../../../../lib/apiClient';
 import { useParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MdAttachMoney, MdPeople, MdBarChart, MdArrowBack } from 'react-icons/md';
-
-const GET_BARBER = gql`
-  query GetBarber($id: ID!) {
-    user(id: $id) {
-      id
-      name
-      email
-      phone
-      shop {
-        id
-        name
-      }
-    }
-  }
-`;
-
-const GET_BARBER_ENTRIES = gql`
-  query GetBarberEntries($barberId: ID!, $startDate: String, $endDate: String) {
-    entries(barberId: $barberId, startDate: $startDate, endDate: $endDate) {
-      id
-      clientNumber
-      date
-      time
-      totalAmount
-      paymentMethod
-      entryServices {
-        service {
-          name
-        }
-      }
-    }
-  }
-`;
 
 const StatCard = ({ title, value, icon }) => {
     return (
@@ -59,26 +26,53 @@ export default function BarberReportPage() {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [isFiltering, setIsFiltering] = useState(false);
+    const [barber, setBarber] = useState(null);
+    const [entries, setEntries] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [entriesLoading, setEntriesLoading] = useState(false);
 
-    const { data: barberData, loading: barberLoading } = useQuery(GET_BARBER, {
-        variables: { id: barberId },
-        skip: !barberId,
-    });
+    useEffect(() => {
+        const fetchBarber = async () => {
+            try {
+                setLoading(true);
+                const data = await api.getUser(barberId);
+                setBarber(data);
+            } catch (err) {
+                console.error('Failed to load barber:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-    const { data: entriesData, loading: entriesLoading, refetch } = useQuery(GET_BARBER_ENTRIES, {
-        variables: { 
-            barberId,
-            startDate: startDate || undefined,
-            endDate: endDate || undefined,
-        },
-        skip: !barberId,
-    });
+        if (barberId) {
+            fetchBarber();
+        }
+    }, [barberId]);
+
+    useEffect(() => {
+        fetchEntries();
+    }, [barberId]);
+
+    const fetchEntries = async () => {
+        try {
+            setEntriesLoading(true);
+            const filters = { barberId };
+            if (startDate) filters.startDate = startDate;
+            if (endDate) filters.endDate = endDate;
+            const data = await api.getEntries(filters);
+            setEntries(data || []);
+        } catch (err) {
+            console.error('Failed to load entries:', err);
+        } finally {
+            setEntriesLoading(false);
+        }
+    };
 
     const handleDateFilter = async () => {
         setIsFiltering(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 300)); // Show loader
-            await refetch();
+            await new Promise(resolve => setTimeout(resolve, 300));
+            await fetchEntries();
         } finally {
             setIsFiltering(false);
         }
@@ -89,18 +83,13 @@ export default function BarberReportPage() {
         setEndDate('');
         setIsFiltering(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 300)); // Show loader
-            await refetch({
-                barberId,
-                startDate: undefined,
-                endDate: undefined,
-            });
+            await new Promise(resolve => setTimeout(resolve, 300));
+            await fetchEntries();
         } finally {
             setIsFiltering(false);
         }
     };
 
-    const entries = entriesData?.entries || [];
     const totalRevenue = entries.reduce((sum, entry) => sum + entry.totalAmount, 0);
     const totalEntries = entries.length;
     const avgTicket = totalEntries > 0 ? (totalRevenue / totalEntries).toFixed(2) : '0.00';
@@ -110,7 +99,7 @@ export default function BarberReportPage() {
         return acc;
     }, {});
 
-    if (barberLoading) {
+    if (loading) {
         return (
             <AdminLayout currentPage="barbers">
                 <div className="h-screen flex items-center justify-center">
@@ -119,8 +108,6 @@ export default function BarberReportPage() {
             </AdminLayout>
         );
     }
-
-    const barber = barberData?.user;
 
     return (
         <AdminLayout currentPage="barbers">
@@ -211,7 +198,7 @@ export default function BarberReportPage() {
                         />
                         <StatCard
                             title="Total Services"
-                            value={entries.reduce((sum, e) => sum + e.entryServices.length, 0)}
+                            value={entries.reduce((sum, e) => sum + (e.entryServices?.length || 0), 0)}
                             icon={<MdBarChart size={24} />}
                         />
                     </div>
@@ -263,12 +250,12 @@ export default function BarberReportPage() {
                                                 <td className="px-6 py-4 whitespace-nowrap">{entry.time}</td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-wrap gap-1">
-                                                        {entry.entryServices.map((es, idx) => (
+                                                        {entry.entryServices?.map((es, idx) => (
                                                             <span
                                                                 key={idx}
                                                                 className="inline-block bg-primary-900 text-white text-xs font-semibold px-2 py-1 rounded-md"
                                                             >
-                                                                {es.service.name}
+                                                                {es.service?.name || es.serviceName}
                                                             </span>
                                                         ))}
                                                     </div>

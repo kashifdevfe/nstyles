@@ -2,8 +2,8 @@
 
 import { MdAttachMoney, MdPeople, MdContentCut, MdBarChart, MdDateRange } from 'react-icons/md';
 import AdminLayout from '../../../components/AdminLayout';
-import { useQuery, gql } from '@apollo/client';
-import { useState } from 'react';
+import { api } from '../../../lib/apiClient';
+import { useState, useEffect } from 'react';
 import {
     BarChart,
     Bar,
@@ -17,26 +17,6 @@ import {
     Pie,
     Cell,
 } from 'recharts';
-
-const GET_STATS = gql`
-  query GetStats($startDate: String, $endDate: String) {
-    stats(startDate: $startDate, endDate: $endDate) {
-      totalCustomersToday
-      totalRevenueToday
-      cashPayments
-      cardPayments
-      applePayPayments
-      otherPayments
-      totalServicesPerformed
-    }
-    weeklyReport(startDate: $startDate, endDate: $endDate) {
-      dailySales {
-        date
-        revenue
-      }
-    }
-  }
-`;
 
 const StatCard = ({ title, stat, icon, helpText }) => {
     return (
@@ -82,20 +62,38 @@ export default function AdminDashboard() {
 
     const [startDate, setStartDate] = useState(getDefaultStartDate());
     const [endDate, setEndDate] = useState(getTodayDate());
+    const [stats, setStats] = useState(null);
+    const [weeklyData, setWeeklyData] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    const { data, loading, error, refetch } = useQuery(GET_STATS, {
-        variables: {
-            startDate: startDate,
-            endDate: endDate,
-        },
-        pollInterval: 30000,
-    });
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const [statsData, weeklyReportData] = await Promise.all([
+                api.getStats(startDate, endDate),
+                api.getWeeklyReport(startDate, endDate)
+            ]);
+            setStats(statsData);
+            const weekly = (weeklyReportData?.dailySales || []).map(d => ({
+                name: new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' }),
+                revenue: d.revenue
+            }));
+            setWeeklyData(weekly);
+        } catch (err) {
+            setError(err.message || 'Failed to load dashboard data');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
 
     const handleDateFilter = async () => {
-        await refetch({
-            startDate: startDate,
-            endDate: endDate,
-        });
+        await fetchData();
     };
 
     const handleResetDates = async () => {
@@ -103,10 +101,7 @@ export default function AdminDashboard() {
         const defaultEnd = getTodayDate();
         setStartDate(defaultStart);
         setEndDate(defaultEnd);
-        await refetch({
-            startDate: defaultStart,
-            endDate: defaultEnd,
-        });
+        await fetchData();
     };
 
     if (loading) {
@@ -123,23 +118,17 @@ export default function AdminDashboard() {
         return (
             <AdminLayout currentPage="dashboard">
                 <div className="max-w-7xl mx-auto py-8 px-4">
-                    <p className="text-red-500">Error loading stats: {error.message}</p>
+                    <p className="text-red-500">Error loading stats: {error}</p>
                 </div>
             </AdminLayout>
         );
     }
 
-    const stats = data?.stats;
-    const weeklyData = data?.weeklyReport?.dailySales.map(d => ({
-        name: new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' }),
-        revenue: d.revenue
-    })) || [];
-
     const paymentData = [
-        { name: 'Cash', value: stats?.cashPayments || 0, color: '#22c55e' }, // Green
-        { name: 'Card', value: stats?.cardPayments || 0, color: '#3b82f6' }, // Blue
-        { name: 'Apple Pay', value: stats?.applePayPayments || 0, color: '#000000' }, // Black
-        { name: 'Other', value: stats?.otherPayments || 0, color: '#f59e0b' }, // Yellow/Orange
+        { name: 'Cash', value: stats?.cashPayments || 0, color: '#22c55e' },
+        { name: 'Card', value: stats?.cardPayments || 0, color: '#3b82f6' },
+        { name: 'Apple Pay', value: stats?.applePayPayments || 0, color: '#000000' },
+        { name: 'Other', value: stats?.otherPayments || 0, color: '#f59e0b' },
     ];
 
     return (
@@ -215,17 +204,17 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
                     <StatCard
                         title="Total Revenue"
-                        stat={`$${stats?.totalRevenueToday.toFixed(2)}`}
+                        stat={`$${stats?.totalRevenueToday?.toFixed(2) || '0.00'}`}
                         icon={<MdAttachMoney size={32} />}
                     />
                     <StatCard
                         title="Total Customers"
-                        stat={stats?.totalCustomersToday}
+                        stat={stats?.totalCustomersToday || 0}
                         icon={<MdPeople size={32} />}
                     />
                     <StatCard
                         title="Services Performed"
-                        stat={stats?.totalServicesPerformed}
+                        stat={stats?.totalServicesPerformed || 0}
                         icon={<MdContentCut size={32} />}
                     />
                     <StatCard

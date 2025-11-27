@@ -1,52 +1,10 @@
 'use client';
 
 import AdminLayout from '../../../../components/AdminLayout';
-import { useQuery, gql } from '@apollo/client';
+import { api } from '../../../../lib/apiClient';
 import { useParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MdAttachMoney, MdPeople, MdBarChart, MdStore, MdArrowBack } from 'react-icons/md';
-
-const GET_SHOP = gql`
-  query GetShop($id: ID!) {
-    shop(id: $id) {
-      id
-      name
-      address
-      phone
-      barbers {
-        id
-        name
-      }
-      stats {
-        totalRevenue
-        totalEntries
-        barberCount
-      }
-    }
-  }
-`;
-
-const GET_SHOP_ENTRIES = gql`
-  query GetShopEntries($shopId: ID!, $startDate: String, $endDate: String) {
-    entries(shopId: $shopId, startDate: $startDate, endDate: $endDate) {
-      id
-      clientNumber
-      date
-      time
-      totalAmount
-      paymentMethod
-      barber {
-        id
-        name
-      }
-      entryServices {
-        service {
-          name
-        }
-      }
-    }
-  }
-`;
 
 const StatCard = ({ title, value, icon }) => {
     return (
@@ -68,26 +26,53 @@ export default function ShopReportPage() {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [isFiltering, setIsFiltering] = useState(false);
+    const [shop, setShop] = useState(null);
+    const [entries, setEntries] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [entriesLoading, setEntriesLoading] = useState(false);
 
-    const { data: shopData, loading: shopLoading } = useQuery(GET_SHOP, {
-        variables: { id: shopId },
-        skip: !shopId,
-    });
+    useEffect(() => {
+        const fetchShop = async () => {
+            try {
+                setLoading(true);
+                const data = await api.getShop(shopId);
+                setShop(data);
+            } catch (err) {
+                console.error('Failed to load shop:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-    const { data: entriesData, loading: entriesLoading, refetch } = useQuery(GET_SHOP_ENTRIES, {
-        variables: { 
-            shopId,
-            startDate: startDate || undefined,
-            endDate: endDate || undefined,
-        },
-        skip: !shopId,
-    });
+        if (shopId) {
+            fetchShop();
+        }
+    }, [shopId]);
+
+    useEffect(() => {
+        fetchEntries();
+    }, [shopId]);
+
+    const fetchEntries = async () => {
+        try {
+            setEntriesLoading(true);
+            const filters = { shopId };
+            if (startDate) filters.startDate = startDate;
+            if (endDate) filters.endDate = endDate;
+            const data = await api.getEntries(filters);
+            setEntries(data || []);
+        } catch (err) {
+            console.error('Failed to load entries:', err);
+        } finally {
+            setEntriesLoading(false);
+        }
+    };
 
     const handleDateFilter = async () => {
         setIsFiltering(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 300)); // Show loader
-            await refetch();
+            await new Promise(resolve => setTimeout(resolve, 300));
+            await fetchEntries();
         } finally {
             setIsFiltering(false);
         }
@@ -98,28 +83,24 @@ export default function ShopReportPage() {
         setEndDate('');
         setIsFiltering(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 300)); // Show loader
-            await refetch({
-                shopId,
-                startDate: undefined,
-                endDate: undefined,
-            });
+            await new Promise(resolve => setTimeout(resolve, 300));
+            await fetchEntries();
         } finally {
             setIsFiltering(false);
         }
     };
 
-    const entries = entriesData?.entries || [];
-    const totalRevenue = entries.reduce((sum, entry) => sum + entry.totalAmount, 0);
-    const totalEntries = entries.length;
+    const allEntries = entries || [];
+    const totalRevenue = allEntries.reduce((sum, entry) => sum + entry.totalAmount, 0);
+    const totalEntries = allEntries.length;
     const avgTicket = totalEntries > 0 ? (totalRevenue / totalEntries).toFixed(2) : '0.00';
 
-    const paymentMethods = entries.reduce((acc, entry) => {
+    const paymentMethods = allEntries.reduce((acc, entry) => {
         acc[entry.paymentMethod] = (acc[entry.paymentMethod] || 0) + entry.totalAmount;
         return acc;
     }, {});
 
-    const barberPerformance = entries.reduce((acc, entry) => {
+    const barberPerformance = allEntries.reduce((acc, entry) => {
         const barberName = entry.barber?.name || 'Unknown';
         if (!acc[barberName]) {
             acc[barberName] = { revenue: 0, entries: 0 };
@@ -129,7 +110,7 @@ export default function ShopReportPage() {
         return acc;
     }, {});
 
-    if (shopLoading) {
+    if (loading) {
         return (
             <AdminLayout currentPage="shops">
                 <div className="h-screen flex items-center justify-center">
@@ -138,8 +119,6 @@ export default function ShopReportPage() {
             </AdminLayout>
         );
     }
-
-    const shop = shopData?.shop;
 
     return (
         <AdminLayout currentPage="shops">
@@ -281,7 +260,7 @@ export default function ShopReportPage() {
                             <div className="py-8 flex justify-center">
                                 <div className="w-12 h-12 border-4 border-primary-900 border-t-transparent rounded-full animate-spin" />
                             </div>
-                        ) : entries.length === 0 ? (
+                        ) : allEntries.length === 0 ? (
                             <p className="text-secondary-500 text-center py-8">
                                 No entries found for the selected date range
                             </p>
@@ -300,7 +279,7 @@ export default function ShopReportPage() {
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
-                                        {entries.map((entry) => (
+                                        {allEntries.map((entry) => (
                                             <tr key={entry.id} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4 whitespace-nowrap font-bold text-primary-900">{entry.clientNumber}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap">{entry.barber?.name || 'N/A'}</td>
@@ -308,12 +287,12 @@ export default function ShopReportPage() {
                                                 <td className="px-6 py-4 whitespace-nowrap">{entry.time}</td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-wrap gap-1">
-                                                        {entry.entryServices.map((es, idx) => (
+                                                        {entry.entryServices?.map((es, idx) => (
                                                             <span
                                                                 key={idx}
                                                                 className="inline-block bg-primary-900 text-white text-xs font-semibold px-2 py-1 rounded-md"
                                                             >
-                                                                {es.service.name}
+                                                                {es.service?.name || es.serviceName}
                                                             </span>
                                                         ))}
                                                     </div>

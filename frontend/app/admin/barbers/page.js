@@ -2,69 +2,11 @@
 
 import { MdAdd, MdEdit, MdDelete, MdPerson, MdEmail, MdPhone, MdStore } from 'react-icons/md';
 import AdminLayout from '../../../components/AdminLayout';
-import { useQuery, useMutation, gql } from '@apollo/client';
+import { api } from '../../../lib/apiClient';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-
-const GET_BARBERS_AND_SHOPS = gql`
-  query GetBarbersAndShops {
-    users {
-      id
-      name
-      email
-      phone
-      role
-      status
-      shop {
-        id
-        name
-      }
-    }
-    shops {
-      id
-      name
-    }
-  }
-`;
-
-const CREATE_USER = gql`
-  mutation CreateUser($name: String!, $email: String!, $password: String!, $phone: String, $role: String!, $shopId: ID) {
-    createUser(name: $name, email: $email, password: $password, phone: $phone, role: $role, shopId: $shopId) {
-      id
-      name
-      email
-      role
-      shop {
-        id
-        name
-      }
-    }
-  }
-`;
-
-const UPDATE_USER = gql`
-  mutation UpdateUser($id: ID!, $name: String, $email: String, $password: String, $phone: String, $role: String, $status: String, $shopId: ID) {
-    updateUser(id: $id, name: $name, email: $email, password: $password, phone: $phone, role: $role, status: $status, shopId: $shopId) {
-      id
-      name
-      email
-      role
-      status
-      shop {
-        id
-        name
-      }
-    }
-  }
-`;
-
-const DELETE_USER = gql`
-  mutation DeleteUser($id: ID!) {
-    deleteUser(id: $id)
-  }
-`;
 
 const BarberSchema = Yup.object().shape({
     name: Yup.string().required('Required'),
@@ -82,22 +24,38 @@ export default function BarbersPage() {
     const [editingBarber, setEditingBarber] = useState(null);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [barbers, setBarbers] = useState([]);
+    const [shops, setShops] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const { data, loading, error: queryError, refetch } = useQuery(GET_BARBERS_AND_SHOPS);
-    const [createUser, { loading: createLoading }] = useMutation(CREATE_USER);
-    const [updateUser, { loading: updateLoading }] = useMutation(UPDATE_USER);
-    const [deleteUser, { loading: deleteLoading }] = useMutation(DELETE_USER);
-
-    const barbers = data?.users.filter(user => user.role === 'barber') || [];
-    const shops = data?.shops || [];
-
-    const handleSubmit = async (values, { setSubmitting, resetForm }) => {
+    const fetchData = async () => {
         try {
+            setLoading(true);
+            const [usersData, shopsData] = await Promise.all([
+                api.getUsers(),
+                api.getShops()
+            ]);
+            setBarbers((usersData || []).filter(user => user.role === 'barber'));
+            setShops(shopsData || []);
+        } catch (err) {
+            setError(err.message || 'Failed to load data');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const handleSubmit = async (values, { resetForm }) => {
+        try {
+            setIsSubmitting(true);
             setError('');
             setSuccess('');
             if (editingBarber) {
-                const variables = {
-                    id: editingBarber.id,
+                const userData = {
                     name: values.name,
                     email: values.email,
                     phone: values.phone,
@@ -105,35 +63,28 @@ export default function BarbersPage() {
                     shopId: values.shopId || null,
                 };
                 if (values.password) {
-                    variables.password = values.password;
+                    userData.password = values.password;
                 }
-                await updateUser({ variables });
-                await new Promise(resolve => setTimeout(resolve, 500)); // Show loader
+                await api.updateUser(editingBarber.id, userData);
+                await new Promise(resolve => setTimeout(resolve, 500));
                 setSuccess('Barber updated');
             } else {
-                await createUser({
-                    variables: {
-                        ...values,
-                        role: 'barber',
-                        shopId: values.shopId || null,
-                    },
+                await api.createUser({
+                    ...values,
+                    role: 'barber',
+                    shopId: values.shopId || null,
                 });
-                await new Promise(resolve => setTimeout(resolve, 500)); // Show loader
+                await new Promise(resolve => setTimeout(resolve, 500));
                 setSuccess('Barber created');
             }
-            await refetch();
+            await fetchData();
             setIsModalOpen(false);
             resetForm();
             setEditingBarber(null);
         } catch (err) {
-            // Extract error message from GraphQL error
-            const errorMessage = err?.graphQLErrors?.[0]?.message || 
-                                err?.networkError?.result?.errors?.[0]?.message ||
-                                err?.message || 
-                                'An error occurred. Please try again.';
-            setError(errorMessage);
+            setError(err.message || 'An error occurred. Please try again.');
         } finally {
-            setSubmitting(false);
+            setIsSubmitting(false);
         }
     };
 
@@ -145,15 +96,18 @@ export default function BarbersPage() {
     const handleDelete = async () => {
         if (!barberToDelete) return;
         try {
+            setIsSubmitting(true);
             setError('');
-            await deleteUser({ variables: { id: barberToDelete.id } });
-            await new Promise(resolve => setTimeout(resolve, 500)); // Show loader
+            await api.deleteUser(barberToDelete.id);
+            await new Promise(resolve => setTimeout(resolve, 500));
             setSuccess('Barber deleted');
-            await refetch();
+            await fetchData();
             setIsDeleteModalOpen(false);
             setBarberToDelete(null);
         } catch (err) {
             setError(err.message || 'Error');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -161,21 +115,16 @@ export default function BarbersPage() {
         try {
             setError('');
             setSuccess('');
-            await updateUser({
-                variables: {
-                    id: barber.id,
-                    status: barber.status === 'active' ? 'inactive' : 'active'
-                }
+            await api.updateUser(barber.id, {
+                status: barber.status === 'active' ? 'inactive' : 'active'
             });
-            await new Promise(resolve => setTimeout(resolve, 300)); // Show loader
+            await new Promise(resolve => setTimeout(resolve, 300));
             setSuccess('Status updated');
-            await refetch();
+            await fetchData();
         } catch (err) {
             setError(err.message || 'Error');
         }
     };
-
-    const isMutationLoading = createLoading || updateLoading || deleteLoading;
 
     const handleBarberClick = (barber, e) => {
         if (e.target.closest('button') || e.target.closest('[role="button"]')) {
@@ -278,7 +227,7 @@ export default function BarbersPage() {
                                                         type="checkbox"
                                                         checked={barber.status === 'active'}
                                                         onChange={() => handleStatusToggle(barber)}
-                                                        disabled={updateLoading}
+                                                        disabled={isSubmitting}
                                                         className="sr-only peer"
                                                     />
                                                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-900"></div>
@@ -292,7 +241,7 @@ export default function BarbersPage() {
                                                             setEditingBarber(barber);
                                                             setIsModalOpen(true);
                                                         }}
-                                                        disabled={isMutationLoading}
+                                                        disabled={isSubmitting}
                                                         className="p-2 bg-primary-900 text-white rounded-lg hover:bg-secondary-500 transition-colors disabled:opacity-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
                                                     >
                                                         <MdEdit size={16} />
@@ -302,10 +251,10 @@ export default function BarbersPage() {
                                                             e.stopPropagation();
                                                             handleDeleteClick(barber);
                                                         }}
-                                                        disabled={deleteLoading}
+                                                        disabled={isSubmitting}
                                                         className="p-2 bg-primary-900 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
                                                     >
-                                                        {deleteLoading ? (
+                                                        {isSubmitting ? (
                                                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                                         ) : (
                                                             <MdDelete size={16} />
@@ -344,7 +293,7 @@ export default function BarbersPage() {
                                                     setEditingBarber(barber);
                                                     setIsModalOpen(true);
                                                 }}
-                                                disabled={isMutationLoading}
+                                                disabled={isSubmitting}
                                                 className="p-2 bg-primary-900 text-white rounded-lg hover:bg-secondary-500 transition-colors disabled:opacity-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
                                             >
                                                 <MdEdit size={18} />
@@ -354,10 +303,10 @@ export default function BarbersPage() {
                                                     e.stopPropagation();
                                                     handleDeleteClick(barber);
                                                 }}
-                                                disabled={deleteLoading}
+                                                disabled={isSubmitting}
                                                 className="p-2 bg-primary-900 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
                                             >
-                                                {deleteLoading ? (
+                                                {isSubmitting ? (
                                                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                                 ) : (
                                                     <MdDelete size={18} />
@@ -390,7 +339,7 @@ export default function BarbersPage() {
                                                 type="checkbox"
                                                 checked={barber.status === 'active'}
                                                 onChange={() => handleStatusToggle(barber)}
-                                                disabled={updateLoading}
+                                                disabled={isSubmitting}
                                                 className="sr-only peer"
                                             />
                                             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-900"></div>
@@ -429,7 +378,7 @@ export default function BarbersPage() {
                                     validationSchema={BarberSchema}
                                     onSubmit={handleSubmit}
                                 >
-                                    {({ errors, touched, isSubmitting }) => (
+                                    {({ errors, touched }) => (
                                         <Form>
                                             <div className="flex flex-col gap-4">
                                                 <Field name="name">
@@ -519,10 +468,10 @@ export default function BarbersPage() {
                                                 </Field>
                                                 <button
                                                     type="submit"
-                                                    disabled={isSubmitting || isMutationLoading}
+                                                    disabled={isSubmitting}
                                                     className="w-full bg-primary-900 text-white py-3 rounded-xl font-semibold hover:bg-primary-800 active:scale-95 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-4 min-h-[44px]"
                                                 >
-                                                    {isSubmitting || isMutationLoading ? (
+                                                    {isSubmitting ? (
                                                         <span className="flex items-center justify-center gap-2">
                                                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                                             {editingBarber ? 'Updating...' : 'Creating...'}
@@ -552,10 +501,10 @@ export default function BarbersPage() {
                                 <div className="flex gap-3">
                                     <button
                                         onClick={handleDelete}
-                                        disabled={deleteLoading}
+                                        disabled={isSubmitting}
                                         className="flex-1 bg-red-600 text-white py-3 rounded-xl font-semibold hover:bg-red-700 active:scale-95 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                                     >
-                                        {deleteLoading ? (
+                                        {isSubmitting ? (
                                             <span className="flex items-center justify-center gap-2">
                                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                                 Deleting...
@@ -569,7 +518,7 @@ export default function BarbersPage() {
                                             setIsDeleteModalOpen(false);
                                             setBarberToDelete(null);
                                         }}
-                                        disabled={deleteLoading}
+                                        disabled={isSubmitting}
                                         className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-300 active:scale-95 transition-colors disabled:opacity-50 min-h-[44px]"
                                     >
                                         Cancel

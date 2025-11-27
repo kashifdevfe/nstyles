@@ -2,55 +2,10 @@
 
 import { MdAdd, MdEdit, MdDelete } from 'react-icons/md';
 import AdminLayout from '../../../components/AdminLayout';
-import { useQuery, useMutation, gql } from '@apollo/client';
+import { api } from '../../../lib/apiClient';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
-import { useState } from 'react';
-
-const GET_USERS = gql`
-  query GetUsers {
-    users {
-      id
-      name
-      email
-      phone
-      role
-      status
-    }
-  }
-`;
-
-const CREATE_USER = gql`
-  mutation CreateUser($name: String!, $email: String!, $password: String!, $phone: String, $role: String!, $status: String) {
-    createUser(name: $name, email: $email, password: $password, phone: $phone, role: $role, status: $status) {
-      id
-      name
-      email
-      phone
-      role
-      status
-    }
-  }
-`;
-
-const UPDATE_USER = gql`
-  mutation UpdateUser($id: ID!, $name: String, $email: String, $password: String, $phone: String, $role: String, $status: String) {
-    updateUser(id: $id, name: $name, email: $email, password: $password, phone: $phone, role: $role, status: $status) {
-      id
-      name
-      email
-      phone
-      role
-      status
-    }
-  }
-`;
-
-const DELETE_USER = gql`
-  mutation DeleteUser($id: ID!) {
-    deleteUser(id: $id)
-  }
-`;
+import { useState, useEffect } from 'react';
 
 const validationSchema = Yup.object({
     name: Yup.string().required('Name is required'),
@@ -67,49 +22,56 @@ export default function UsersPage() {
     const [editingUser, setEditingUser] = useState(null);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [users, setUsers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const { data, loading, refetch } = useQuery(GET_USERS);
-    const [createUser, { loading: createLoading }] = useMutation(CREATE_USER);
-    const [updateUser, { loading: updateLoading }] = useMutation(UPDATE_USER);
-    const [deleteUser, { loading: deleteLoading }] = useMutation(DELETE_USER);
-
-    const users = data?.users || [];
-
-    const handleSubmit = async (values, { setSubmitting }) => {
+    const fetchUsers = async () => {
         try {
+            setLoading(true);
+            const data = await api.getUsers();
+            setUsers(data || []);
+        } catch (err) {
+            setError(err.message || 'Failed to load users');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchUsers();
+    }, []);
+
+    const handleSubmit = async (values, { resetForm }) => {
+        try {
+            setIsSubmitting(true);
             setError('');
             setSuccess('');
-            const variables = {
+            const userData = {
                 ...values,
                 status: values.status || 'active',
             };
 
             if (editingUser) {
                 if (!values.password) {
-                    delete variables.password;
+                    delete userData.password;
                 }
-                await updateUser({
-                    variables: { id: editingUser.id, ...variables },
-                });
-                await new Promise(resolve => setTimeout(resolve, 500)); // Show loader
+                await api.updateUser(editingUser.id, userData);
+                await new Promise(resolve => setTimeout(resolve, 500));
                 setSuccess('User Updated');
             } else {
-                await createUser({ variables });
-                await new Promise(resolve => setTimeout(resolve, 500)); // Show loader
+                await api.createUser(userData);
+                await new Promise(resolve => setTimeout(resolve, 500));
                 setSuccess('User Created');
             }
-            await refetch();
+            await fetchUsers();
             setIsModalOpen(false);
             setEditingUser(null);
+            resetForm();
         } catch (err) {
-            // Extract error message from GraphQL error
-            const errorMessage = err?.graphQLErrors?.[0]?.message || 
-                                err?.networkError?.result?.errors?.[0]?.message ||
-                                err?.message || 
-                                'An error occurred. Please try again.';
-            setError(errorMessage);
+            setError(err.message || 'An error occurred. Please try again.');
         } finally {
-            setSubmitting(false);
+            setIsSubmitting(false);
         }
     };
 
@@ -121,37 +83,22 @@ export default function UsersPage() {
     const handleDelete = async () => {
         if (!userToDelete) return;
         try {
+            setIsSubmitting(true);
             setError('');
             setSuccess('');
-            const result = await deleteUser({ 
-                variables: { id: userToDelete.id },
-                errorPolicy: 'all'
-            });
-            
-            if (result.errors && result.errors.length > 0) {
-                const errorMessage = result.errors[0]?.message || 'Failed to delete user';
-                setError(errorMessage);
-                setIsDeleteModalOpen(false);
-                return;
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, 500)); // Show loader
+            await api.deleteUser(userToDelete.id);
+            await new Promise(resolve => setTimeout(resolve, 500));
             setSuccess('User Deleted');
-            await refetch();
+            await fetchUsers();
             setIsDeleteModalOpen(false);
             setUserToDelete(null);
         } catch (err) {
-            // Extract error message from GraphQL error
-            const errorMessage = err?.graphQLErrors?.[0]?.message || 
-                                err?.networkError?.result?.errors?.[0]?.message ||
-                                err?.message || 
-                                'Failed to delete user. Please try again.';
-            setError(errorMessage);
+            setError(err.message || 'Failed to delete user. Please try again.');
             setIsDeleteModalOpen(false);
+        } finally {
+            setIsSubmitting(false);
         }
     };
-
-    const isMutationLoading = createLoading || updateLoading || deleteLoading;
 
     if (loading) {
         return (
@@ -234,17 +181,17 @@ export default function UsersPage() {
                                                             setEditingUser(user);
                                                             setIsModalOpen(true);
                                                         }}
-                                                        disabled={isMutationLoading}
+                                                        disabled={isSubmitting}
                                                         className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
                                                     >
                                                         <MdEdit size={16} />
                                                     </button>
                                                     <button
                                                         onClick={() => handleDeleteClick(user)}
-                                                        disabled={deleteLoading}
+                                                        disabled={isSubmitting}
                                                         className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
                                                     >
-                                                        {deleteLoading ? (
+                                                        {isSubmitting ? (
                                                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                                         ) : (
                                                             <MdDelete size={16} />
@@ -287,7 +234,7 @@ export default function UsersPage() {
                                     validationSchema={validationSchema}
                                     onSubmit={handleSubmit}
                                 >
-                                    {({ errors, touched, isSubmitting }) => (
+                                    {({ errors, touched }) => (
                                         <Form>
                                             <div className="flex flex-col gap-4">
                                                 <Field name="name">
@@ -395,10 +342,10 @@ export default function UsersPage() {
                                                 <div className="flex gap-3 pt-4">
                                                     <button
                                                         type="submit"
-                                                        disabled={isSubmitting || isMutationLoading}
+                                                        disabled={isSubmitting}
                                                         className="flex-1 bg-primary-900 text-white py-3 rounded-xl font-semibold hover:bg-primary-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
-                                                        {isSubmitting || isMutationLoading ? (
+                                                        {isSubmitting ? (
                                                             <span className="flex items-center justify-center gap-2">
                                                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                                                 {editingUser ? 'Updating...' : 'Creating...'}
@@ -413,7 +360,7 @@ export default function UsersPage() {
                                                             setIsModalOpen(false);
                                                             setEditingUser(null);
                                                         }}
-                                                        disabled={isMutationLoading}
+                                                        disabled={isSubmitting}
                                                         className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-300 transition-colors disabled:opacity-50"
                                                     >
                                                         Cancel
@@ -440,10 +387,10 @@ export default function UsersPage() {
                                 <div className="flex gap-3">
                                     <button
                                         onClick={handleDelete}
-                                        disabled={deleteLoading}
+                                        disabled={isSubmitting}
                                         className="flex-1 bg-red-600 text-white py-3 rounded-xl font-semibold hover:bg-red-700 active:scale-95 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                                     >
-                                        {deleteLoading ? (
+                                        {isSubmitting ? (
                                             <span className="flex items-center justify-center gap-2">
                                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                                 Deleting...
@@ -457,7 +404,7 @@ export default function UsersPage() {
                                             setIsDeleteModalOpen(false);
                                             setUserToDelete(null);
                                         }}
-                                        disabled={deleteLoading}
+                                        disabled={isSubmitting}
                                         className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-300 active:scale-95 transition-colors disabled:opacity-50 min-h-[44px]"
                                     >
                                         Cancel
