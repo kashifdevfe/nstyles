@@ -1,5 +1,10 @@
 // REST API Client to replace Apollo Client
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const getApiUrl = () => {
+    if (typeof window !== 'undefined') {
+        return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    }
+    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+};
 
 // Helper function to get auth token
 const getToken = () => {
@@ -10,6 +15,11 @@ const getToken = () => {
 // Helper function to make API requests
 const apiRequest = async (endpoint, options = {}) => {
     const token = getToken();
+    const API_URL = getApiUrl();
+    
+    // Ensure endpoint starts with /
+    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${API_URL}${normalizedEndpoint}`;
     
     const headers = {
         'Content-Type': 'application/json',
@@ -26,7 +36,7 @@ const apiRequest = async (endpoint, options = {}) => {
     };
 
     try {
-        const response = await fetch(`${API_URL}${endpoint}`, config);
+        const response = await fetch(url, config);
         
         // Handle non-JSON responses
         const contentType = response.headers.get('content-type');
@@ -45,7 +55,11 @@ const apiRequest = async (endpoint, options = {}) => {
 
         return { ok: true, data };
     } catch (error) {
-        console.error('API request error:', error);
+        console.error('API request error:', {
+            url,
+            method: config.method || 'GET',
+            error: error.message
+        });
         throw error;
     }
 };
