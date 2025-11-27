@@ -2,6 +2,7 @@ import express from 'express';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import bodyParser from 'body-parser';
+import cors from 'cors';
 import { typeDefs } from './graphql/schema.js';
 import { resolvers, getUser } from './graphql/resolvers.js';
 import dotenv from 'dotenv';
@@ -21,29 +22,20 @@ const server = new ApolloServer({
 await server.start();
 
 // CORS Configuration - Allow all origins for production
-// Note: We can't use wildcard (*) with credentials, so we reflect the origin
-app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    
-    // Allow all origins by reflecting the requesting origin
-    if (origin) {
-        res.header('Access-Control-Allow-Origin', origin);
-    } else {
-        res.header('Access-Control-Allow-Origin', '*');
-    }
-    
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-    res.header('Access-Control-Max-Age', '86400'); // 24 hours
-    
-    // Handle preflight OPTIONS requests
-    if (req.method === 'OPTIONS') {
-        return res.status(204).end();
-    }
-    
-    next();
-});
+// Using cors package for proper preflight handling
+app.use(cors({
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        // Allow all origins in production - reflect the requesting origin
+        callback(null, origin);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    preflightContinue: false,
+    optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
+}));
 
 app.use(bodyParser.json());
 
@@ -62,6 +54,11 @@ app.use(
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'Barber Shop API is running' });
+});
+
+// Handle favicon requests to prevent 404 errors
+app.get('/favicon.ico', (req, res) => {
+    res.status(204).end();
 });
 
 app.listen(PORT, () => {
