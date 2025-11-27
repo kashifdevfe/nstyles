@@ -24,15 +24,27 @@ await server.start();
 // Middleware - CORS Configuration (Allow all origins in production)
 const corsOptions = {
     origin: function (origin, callback) {
-        // In production, allow all origins (Vercel preview URLs change frequently)
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) {
+            return callback(null, true);
+        }
+        // Allow all origins - needed for Vercel preview deployments
         callback(null, true);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
+    methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     exposedHeaders: ['Content-Type', 'Authorization'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
 };
+
+// Apply CORS middleware globally before other middleware
 app.use(cors(corsOptions));
+
+// Handle preflight requests explicitly for all routes
+app.options('*', cors(corsOptions));
+
 app.use(bodyParser.json());
 
 // GraphQL endpoint with context
