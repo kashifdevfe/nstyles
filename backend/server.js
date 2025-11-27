@@ -1,7 +1,6 @@
 import express from 'express';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
-import cors from 'cors';
 import bodyParser from 'body-parser';
 import { typeDefs } from './graphql/schema.js';
 import { resolvers, getUser } from './graphql/resolvers.js';
@@ -21,29 +20,30 @@ const server = new ApolloServer({
 // Start server
 await server.start();
 
-// Middleware - CORS Configuration (Allow all origins in production)
-const corsOptions = {
-    origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) {
-            return callback(null, true);
-        }
-        // Allow all origins - needed for Vercel preview deployments
-        callback(null, true);
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    exposedHeaders: ['Content-Type', 'Authorization'],
-    preflightContinue: false,
-    optionsSuccessStatus: 204,
-};
-
-// Apply CORS middleware globally before other middleware
-app.use(cors(corsOptions));
-
-// Handle preflight requests explicitly for all routes
-app.options('*', cors(corsOptions));
+// CORS Configuration - Allow all origins for production
+// Note: We can't use wildcard (*) with credentials, so we reflect the origin
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    
+    // Allow all origins by reflecting the requesting origin
+    if (origin) {
+        res.header('Access-Control-Allow-Origin', origin);
+    } else {
+        res.header('Access-Control-Allow-Origin', '*');
+    }
+    
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.header('Access-Control-Max-Age', '86400'); // 24 hours
+    
+    // Handle preflight OPTIONS requests
+    if (req.method === 'OPTIONS') {
+        return res.status(204).end();
+    }
+    
+    next();
+});
 
 app.use(bodyParser.json());
 
