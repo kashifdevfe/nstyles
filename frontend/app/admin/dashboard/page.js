@@ -66,6 +66,11 @@ export default function AdminDashboard() {
     const [weeklyData, setWeeklyData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isClient, setIsClient] = useState(false);
+
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
 
     const fetchData = async () => {
         try {
@@ -204,7 +209,7 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
                     <StatCard
                         title="Total Revenue"
-                        stat={`$${stats?.totalRevenueToday?.toFixed(2) || '0.00'}`}
+                        stat={`£${stats?.totalRevenueToday?.toFixed(2) || '0.00'}`}
                         icon={<MdAttachMoney size={32} />}
                     />
                     <StatCard
@@ -219,56 +224,64 @@ export default function AdminDashboard() {
                     />
                     <StatCard
                         title="Avg. Ticket"
-                        stat={`$${stats?.totalCustomersToday ? (stats.totalRevenueToday / stats.totalCustomersToday).toFixed(2) : '0.00'}`}
+                        stat={`£${stats?.totalCustomersToday ? (stats.totalRevenueToday / stats.totalCustomersToday).toFixed(2) : '0.00'}`}
                         icon={<MdBarChart size={32} />}
                     />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
-                    <div className="lg:col-span-2 bg-white p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-2xl shadow-lg h-[300px] sm:h-[350px] md:h-[400px] border border-secondary-500">
+                    <div className="lg:col-span-2 bg-white p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-2xl shadow-lg border border-secondary-500">
                         <h2 className="text-base sm:text-lg font-semibold mb-4 sm:mb-6 text-primary-900">
                             Revenue Trend
                         </h2>
-                        <ResponsiveContainer width="100%" height="calc(100% - 3rem)">
-                            <BarChart data={weeklyData}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                                <YAxis axisLine={false} tickLine={false} />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                                />
-                                <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
-                                    {weeklyData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
+                        {isClient && (
+                            <div className="h-[250px] sm:h-[300px] md:h-[350px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={weeklyData}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                        <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                                        <YAxis axisLine={false} tickLine={false} />
+                                        <Tooltip
+                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                                        />
+                                        <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
+                                            {weeklyData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
                     </div>
-                    <div className="bg-white p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-2xl shadow-lg h-[300px] sm:h-[350px] md:h-[400px] border border-secondary-500">
+                    <div className="bg-white p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-2xl shadow-lg border border-secondary-500">
                         <h2 className="text-base sm:text-lg font-semibold mb-4 sm:mb-6 text-primary-900">
                             Payment Methods
                         </h2>
-                        <ResponsiveContainer width="100%" height="calc(100% - 3rem)">
-                            <PieChart>
-                                <Pie
-                                    data={paymentData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={80}
-                                    fill="#8884d8"
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                >
-                                    {paymentData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                                <Legend verticalAlign="bottom" height={36} />
-                            </PieChart>
-                        </ResponsiveContainer>
+                        {isClient && (
+                            <div className="h-[250px] sm:h-[300px] md:h-[350px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={paymentData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={60}
+                                            outerRadius={80}
+                                            fill="#8884d8"
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                        >
+                                            {paymentData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip />
+                                        <Legend verticalAlign="bottom" height={36} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

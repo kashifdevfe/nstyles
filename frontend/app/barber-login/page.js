@@ -77,19 +77,6 @@ export default function BarberLogin() {
                             <p className="text-gray-600 text-xs sm:text-sm mt-2">
                                 Access your professional dashboard
                             </p>
-                            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-tertiary-50 rounded-xl border border-teal-200 shadow-sm">
-                                <p className="text-[10px] sm:text-xs font-bold text-teal-700 mb-2 uppercase tracking-wide">
-                                    Demo Credentials
-                                </p>
-                                <div className="flex flex-col gap-1 items-start">
-                                    <p className="text-xs sm:text-sm text-teal-600 font-mono break-all">
-                                        📧 john@barber.com
-                                    </p>
-                                    <p className="text-xs sm:text-sm text-teal-600 font-mono">
-                                        🔒 barber123
-                                    </p>
-                                </div>
-                            </div>
                         </div>
 
                         <Formik

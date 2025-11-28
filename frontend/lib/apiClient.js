@@ -222,8 +222,13 @@ export const api = {
         return result.data;
     },
 
-    getDailyReport: async () => {
-        const result = await apiRequest('/api/reports/daily');
+    getDailyReport: async (startDate, endDate) => {
+        const params = {};
+        if (startDate) params.startDate = startDate;
+        if (endDate) params.endDate = endDate;
+        const queryParams = new URLSearchParams(params).toString();
+        const endpoint = `/api/reports/daily${queryParams ? `?${queryParams}` : ''}`;
+        const result = await apiRequest(endpoint);
         return result.data;
     },
 
@@ -237,8 +242,13 @@ export const api = {
         return result.data;
     },
 
-    getMonthlyReport: async () => {
-        const result = await apiRequest('/api/reports/monthly');
+    getMonthlyReport: async (startDate, endDate) => {
+        const params = {};
+        if (startDate) params.startDate = startDate;
+        if (endDate) params.endDate = endDate;
+        const queryParams = new URLSearchParams(params).toString();
+        const endpoint = `/api/reports/monthly${queryParams ? `?${queryParams}` : ''}`;
+        const result = await apiRequest(endpoint);
         return result.data;
     },
 };

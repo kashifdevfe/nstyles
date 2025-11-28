@@ -48,13 +48,27 @@ router.get('/stats', authenticate, requireAdmin, async (req, res) => {
 // Get daily report
 router.get('/daily', authenticate, requireAdmin, async (req, res) => {
     try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const { startDate, endDate } = req.query;
+
+        let start, end;
+        if (startDate && endDate) {
+            start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+        } else {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            start = today;
+            end = new Date();
+            end.setHours(23, 59, 59, 999);
+        }
 
         const entries = await prisma.entry.findMany({
             where: {
                 date: {
-                    gte: today
+                    gte: start,
+                    lte: end
                 }
             },
             include: {
@@ -163,9 +177,20 @@ router.get('/weekly', authenticate, requireAdmin, async (req, res) => {
             revenue
         })).sort((a, b) => new Date(a.date) - new Date(b.date));
 
+        const serviceUsage = Object.entries(serviceUsageMap).map(([serviceName, count]) => ({
+            serviceName,
+            count
+        }));
+
         res.json({
+            totalCustomers: entries.length,
             totalRevenue: entries.reduce((sum, e) => sum + e.totalAmount, 0),
+            cashPayments: entries.filter(e => e.paymentMethod === 'Cash').reduce((sum, e) => sum + e.totalAmount, 0),
+            cardPayments: entries.filter(e => e.paymentMethod === 'Card').reduce((sum, e) => sum + e.totalAmount, 0),
+            applePayPayments: entries.filter(e => e.paymentMethod === 'Apple Pay').reduce((sum, e) => sum + e.totalAmount, 0),
+            otherPayments: entries.filter(e => e.paymentMethod === 'Other').reduce((sum, e) => sum + e.totalAmount, 0),
             mostUsedService,
+            serviceUsage,
             dailySales
         });
     } catch (error) {
@@ -177,14 +202,28 @@ router.get('/weekly', authenticate, requireAdmin, async (req, res) => {
 // Get monthly report
 router.get('/monthly', authenticate, requireAdmin, async (req, res) => {
     try {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        thirtyDaysAgo.setHours(0, 0, 0, 0);
+        const { startDate, endDate } = req.query;
+
+        let start, end;
+        if (startDate && endDate) {
+            start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+        } else {
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            thirtyDaysAgo.setHours(0, 0, 0, 0);
+            start = thirtyDaysAgo;
+            end = new Date();
+            end.setHours(23, 59, 59, 999);
+        }
 
         const entries = await prisma.entry.findMany({
             where: {
                 date: {
-                    gte: thirtyDaysAgo
+                    gte: start,
+                    lte: end
                 }
             },
             include: {
@@ -243,10 +282,21 @@ router.get('/monthly', authenticate, requireAdmin, async (req, res) => {
             revenue
         })).sort((a, b) => new Date(a.date) - new Date(b.date));
 
+        const serviceUsage = Object.entries(serviceUsageMap).map(([serviceName, count]) => ({
+            serviceName,
+            count
+        }));
+
         res.json({
+            totalCustomers: entries.length,
             totalRevenue: entries.reduce((sum, e) => sum + e.totalAmount, 0),
+            cashPayments: entries.filter(e => e.paymentMethod === 'Cash').reduce((sum, e) => sum + e.totalAmount, 0),
+            cardPayments: entries.filter(e => e.paymentMethod === 'Card').reduce((sum, e) => sum + e.totalAmount, 0),
+            applePayPayments: entries.filter(e => e.paymentMethod === 'Apple Pay').reduce((sum, e) => sum + e.totalAmount, 0),
+            otherPayments: entries.filter(e => e.paymentMethod === 'Other').reduce((sum, e) => sum + e.totalAmount, 0),
             topBarber,
             mostRequestedService,
+            serviceUsage,
             dailySales
         });
     } catch (error) {

@@ -77,20 +77,6 @@ export default function AdminLogin() {
                             <p className="text-gray-600 text-xs sm:text-sm mt-2">
                                 Access the admin dashboard
                             </p>
-                            {/* Updated to use REST API - v2 */}
-                            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-tertiary-50 rounded-xl border border-purple-200 shadow-sm">
-                                <p className="text-[10px] sm:text-xs font-bold text-purple-700 mb-2 uppercase tracking-wide">
-                                    Demo Credentials
-                                </p>
-                                <div className="flex flex-col gap-1 items-start">
-                                    <p className="text-xs sm:text-sm text-purple-600 font-mono break-all">
-                                        📧 admin@barber.com
-                                    </p>
-                                    <p className="text-xs sm:text-sm text-purple-600 font-mono">
-                                        🔒 admin123
-                                    </p>
-                                </div>
-                            </div>
                         </div>
 
                         <Formik
