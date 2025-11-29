@@ -53,7 +53,7 @@ router.get('/:id', authenticate, requireAdmin, async (req, res) => {
 // Create user (admin only)
 router.post('/', authenticate, requireAdmin, async (req, res) => {
     try {
-        const { name, email, password, phone, role, status, shopId } = req.body;
+        const { name, email, password, phone, role, status, shopId, canEditEntries, canDeleteEntries } = req.body;
 
         if (!name || !email || !password || !role) {
             return res.status(400).json({ error: 'Name, email, password, and role are required' });
@@ -76,7 +76,9 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
                 phone,
                 role,
                 status: status || 'active',
-                shopId
+                shopId,
+                canEditEntries: role === 'barber' ? (canEditEntries || false) : false,
+                canDeleteEntries: role === 'barber' ? (canDeleteEntries || false) : false,
             },
             include: { shop: true }
         });
@@ -94,7 +96,7 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
 // Update user (admin only)
 router.put('/:id', authenticate, requireAdmin, async (req, res) => {
     try {
-        const { name, email, password, phone, role, status, shopId } = req.body;
+        const { name, email, password, phone, role, status, shopId, canEditEntries, canDeleteEntries } = req.body;
 
         if (email) {
             const existingUser = await prisma.user.findUnique({
@@ -109,6 +111,16 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
         const updateData = { name, email, phone, role, status, shopId };
         if (password) {
             updateData.password = await bcrypt.hash(password, 10);
+        }
+        
+        // Only set permissions for barbers
+        if (role === 'barber') {
+            if (canEditEntries !== undefined) updateData.canEditEntries = canEditEntries;
+            if (canDeleteEntries !== undefined) updateData.canDeleteEntries = canDeleteEntries;
+        } else {
+            // Reset permissions for non-barbers
+            updateData.canEditEntries = false;
+            updateData.canDeleteEntries = false;
         }
 
         const user = await prisma.user.update({
