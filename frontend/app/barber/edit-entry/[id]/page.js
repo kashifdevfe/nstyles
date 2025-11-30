@@ -1,10 +1,10 @@
 'use client';
 
-import BarberLayout from '../../../components/BarberLayout';
-import api from '../../../lib/apiClient';
+import BarberLayout from '../../../../components/BarberLayout';
+import api from '../../../../lib/apiClient';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { useState, useEffect } from 'react';
 
@@ -15,31 +15,47 @@ const validationSchema = Yup.object({
     paymentMethod: Yup.string().required('Payment method is required'),
 });
 
-export default function AddEntryPage() {
+export default function EditEntryPage() {
     const router = useRouter();
+    const params = useParams();
+    const entryId = params.id;
     const { user } = useSelector((state) => state.auth);
     const [selectedServices, setSelectedServices] = useState([]);
     const [totalAmount, setTotalAmount] = useState(0);
     const [success, setSuccess] = useState('');
     const [error, setError] = useState('');
     const [services, setServices] = useState([]);
+    const [entry, setEntry] = useState(null);
     const [servicesLoading, setServicesLoading] = useState(true);
+    const [entryLoading, setEntryLoading] = useState(true);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        const fetchServices = async () => {
+        const fetchData = async () => {
             try {
                 setServicesLoading(true);
-                const data = await api.getServices();
-                setServices(data || []);
+                setEntryLoading(true);
+                const [servicesData, entryData] = await Promise.all([
+                    api.getServices(),
+                    api.getEntry(entryId)
+                ]);
+                setServices(servicesData || []);
+                setEntry(entryData);
+                
+                // Set initial selected services
+                if (entryData?.entryServices) {
+                    const serviceIds = entryData.entryServices.map(es => es.service.id);
+                    setSelectedServices(serviceIds);
+                }
             } catch (err) {
-                setError('Failed to load services');
+                setError('Failed to load data');
             } finally {
                 setServicesLoading(false);
+                setEntryLoading(false);
             }
         };
-        fetchServices();
-    }, []);
+        fetchData();
+    }, [entryId]);
 
     useEffect(() => {
         const total = selectedServices.reduce((sum, serviceId) => {
@@ -49,57 +65,67 @@ export default function AddEntryPage() {
         setTotalAmount(total);
     }, [selectedServices, services]);
 
-    const handleSubmit = async (values, { setSubmitting, resetForm }) => {
+    const handleSubmit = async (values, { setSubmitting }) => {
         try {
             setError('');
             setSuccess('');
             setLoading(true);
-            const data = await api.createEntry({
-                barberId: user.id,
+            const data = await api.updateEntry(entryId, {
                 serviceIds: values.serviceIds,
                 date: values.date,
                 time: values.time,
                 paymentMethod: values.paymentMethod,
             });
-            await new Promise(resolve => setTimeout(resolve, 500)); // Show loader
+            await new Promise(resolve => setTimeout(resolve, 500));
 
-            setSuccess(`Entry Created! Client Number: ${data.clientNumber} | Total: £${data.totalAmount.toFixed(2)}`);
-            resetForm();
-            setSelectedServices([]);
-            setTotalAmount(0);
+            setSuccess(`Entry Updated! Client Number: ${data.clientNumber} | Total: £${data.totalAmount.toFixed(2)}`);
 
             setTimeout(() => {
                 router.push('/barber/dashboard');
             }, 2000);
         } catch (err) {
-            setError(err.message || 'Error creating entry');
+            setError(err.message || 'Error updating entry');
         } finally {
             setLoading(false);
             setSubmitting(false);
         }
     };
 
-    const getTodayDate = () => {
-        const today = new Date();
-        return today.toISOString().split('T')[0];
-    };
+    if (entryLoading || servicesLoading) {
+        return (
+            <BarberLayout currentPage="dashboard">
+                <div className="h-screen flex items-center justify-center">
+                    <div className="w-12 h-12 border-4 border-primary-900 border-t-transparent rounded-full animate-spin" />
+                </div>
+            </BarberLayout>
+        );
+    }
 
-    const getCurrentTime = () => {
-        const now = new Date();
-        return now.toTimeString().slice(0, 5);
-    };
+    if (!entry) {
+        return (
+            <BarberLayout currentPage="dashboard">
+                <div className="max-w-3xl mx-auto py-8 px-4">
+                    <p className="text-red-500">Entry not found</p>
+                </div>
+            </BarberLayout>
+        );
+    }
+
+    // Format date for input
+    const entryDate = entry.date ? new Date(entry.date).toISOString().split('T')[0] : '';
+    const entryTime = entry.time || '';
 
     return (
-        <BarberLayout currentPage="add-entry">
+        <BarberLayout currentPage="dashboard">
             <div className="max-w-3xl mx-auto py-4 sm:py-6 md:py-8 px-3 sm:px-4">
                 <div className="flex flex-col gap-4 sm:gap-6">
                     {/* Header */}
                     <div className="mb-2">
                         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-3 text-primary-900">
-                            Add New Entry
+                            Edit Entry
                         </h1>
                         <p className="text-gray-600 text-sm sm:text-base md:text-lg">
-                            Create a new client entry with auto-generated client number
+                            Update entry details for Client Number: <strong>{entry.clientNumber}</strong>
                         </p>
                     </div>
 
@@ -107,24 +133,18 @@ export default function AddEntryPage() {
                     <div className="bg-white p-4 sm:p-6 md:p-10 rounded-xl sm:rounded-2xl shadow-lg border border-gray-200">
                         <Formik
                             initialValues={{
-                                date: getTodayDate(),
-                                time: getCurrentTime(),
-                                serviceIds: [],
-                                paymentMethod: 'Cash',
+                                date: entryDate,
+                                time: entryTime,
+                                serviceIds: entry.entryServices?.map(es => es.service.id) || [],
+                                paymentMethod: entry.paymentMethod || 'Cash',
                             }}
                             validationSchema={validationSchema}
                             onSubmit={handleSubmit}
+                            enableReinitialize
                         >
                             {({ errors, touched, isSubmitting, setFieldValue, values }) => (
                                 <Form>
                                     <div className="flex flex-col gap-6">
-                                        {/* Client Number Info */}
-                                        <div className="p-5 bg-gray-100 rounded-xl border-l-4 border-primary-900 shadow-sm">
-                                            <p className="text-sm font-semibold text-primary-900">
-                                                ℹ️ Client Number will be auto-generated (Format: C-0001, C-0002, etc.)
-                                            </p>
-                                        </div>
-
                                         {/* Date */}
                                         <Field name="date">
                                             {({ field }) => (
@@ -172,46 +192,40 @@ export default function AddEntryPage() {
                                                     <label className="block text-sm font-semibold text-gray-700 mb-4">
                                                         Select Services * (Multiple Selection)
                                                     </label>
-                                                    {servicesLoading ? (
-                                                        <div className="py-8 flex justify-center">
-                                                            <div className="w-8 h-8 border-4 border-primary-900 border-t-transparent rounded-full animate-spin" />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                                                            {services.map((service) => (
-                                                                <label
-                                                                    key={service.id}
-                                                                    className={`p-3 sm:p-4 border-2 rounded-lg cursor-pointer transition-all min-h-[80px] flex items-center ${
-                                                                        selectedServices.includes(service.id)
-                                                                            ? 'border-primary-900 bg-gray-50'
-                                                                            : 'border-gray-200 bg-white hover:border-gray-300 hover:-translate-y-0.5 hover:shadow-md'
-                                                                    }`}
-                                                                >
-                                                                    <div className="flex items-center gap-2 sm:gap-3 w-full">
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            value={service.id}
-                                                                            checked={selectedServices.includes(service.id)}
-                                                                            onChange={(e) => {
-                                                                                const newSelected = e.target.checked
-                                                                                    ? [...selectedServices, service.id]
-                                                                                    : selectedServices.filter(id => id !== service.id);
-                                                                                setSelectedServices(newSelected);
-                                                                                setFieldValue('serviceIds', newSelected);
-                                                                            }}
-                                                                            className="w-4 h-4 sm:w-5 sm:h-5 text-primary-900 border-gray-300 rounded focus:ring-primary-900 flex-shrink-0"
-                                                                        />
-                                                                        <div className="flex-1 min-w-0">
-                                                                            <p className="font-semibold text-sm sm:text-base text-gray-900 truncate">{service.name}</p>
-                                                                            <p className="text-base sm:text-lg text-green-600 font-bold">
-                                                                                £{service.price.toFixed(2)}
-                                                                            </p>
-                                                                        </div>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                                                        {services.map((service) => (
+                                                            <label
+                                                                key={service.id}
+                                                                className={`p-3 sm:p-4 border-2 rounded-lg cursor-pointer transition-all min-h-[80px] flex items-center ${
+                                                                    selectedServices.includes(service.id)
+                                                                        ? 'border-primary-900 bg-gray-50'
+                                                                        : 'border-gray-200 bg-white hover:border-gray-300 hover:-translate-y-0.5 hover:shadow-md'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center gap-2 sm:gap-3 w-full">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        value={service.id}
+                                                                        checked={selectedServices.includes(service.id)}
+                                                                        onChange={(e) => {
+                                                                            const newSelected = e.target.checked
+                                                                                ? [...selectedServices, service.id]
+                                                                                : selectedServices.filter(id => id !== service.id);
+                                                                            setSelectedServices(newSelected);
+                                                                            setFieldValue('serviceIds', newSelected);
+                                                                        }}
+                                                                        className="w-4 h-4 sm:w-5 sm:h-5 text-primary-900 border-gray-300 rounded focus:ring-primary-900 flex-shrink-0"
+                                                                    />
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="font-semibold text-sm sm:text-base text-gray-900 truncate">{service.name}</p>
+                                                                        <p className="text-base sm:text-lg text-green-600 font-bold">
+                                                                            £{service.price.toFixed(2)}
+                                                                        </p>
                                                                     </div>
-                                                                </label>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                                                </div>
+                                                            </label>
+                                                        ))}
+                                                    </div>
                                                     {errors.serviceIds && touched.serviceIds && (
                                                         <p className="text-red-500 text-xs mt-1">{errors.serviceIds}</p>
                                                     )}
@@ -305,10 +319,10 @@ export default function AddEntryPage() {
                                             {isSubmitting || loading ? (
                                                 <span className="flex items-center justify-center gap-2">
                                                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                    Creating Entry...
+                                                    Updating Entry...
                                                 </span>
                                             ) : (
-                                                'Create Entry'
+                                                'Update Entry'
                                             )}
                                         </button>
 
@@ -329,3 +343,4 @@ export default function AddEntryPage() {
         </BarberLayout>
     );
 }
+

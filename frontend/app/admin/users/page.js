@@ -50,7 +50,16 @@ export default function UsersPage() {
             const userData = {
                 ...values,
                 status: values.status || 'active',
+                canEditEntries: values.role === 'barber' ? (values.canEditEntries || false) : undefined,
+                canDeleteEntries: values.role === 'barber' ? (values.canDeleteEntries || false) : undefined,
             };
+            
+            // Remove undefined fields
+            Object.keys(userData).forEach(key => {
+                if (userData[key] === undefined) {
+                    delete userData[key];
+                }
+            });
 
             if (editingUser) {
                 if (!values.password) {
@@ -152,6 +161,7 @@ export default function UsersPage() {
                                         <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Email</th>
                                         <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Role</th>
                                         <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Status</th>
+                                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Permissions</th>
                                         <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Actions</th>
                                     </tr>
                                 </thead>
@@ -173,6 +183,27 @@ export default function UsersPage() {
                                                 }`}>
                                                     {user.status}
                                                 </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {user.role === 'barber' ? (
+                                                    <div className="flex flex-col gap-1">
+                                                        {user.canEditEntries && (
+                                                            <span className="inline-block px-2 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800">
+                                                                Can Edit
+                                                            </span>
+                                                        )}
+                                                        {user.canDeleteEntries && (
+                                                            <span className="inline-block px-2 py-1 rounded-md text-xs font-semibold bg-orange-100 text-orange-800">
+                                                                Can Delete
+                                                            </span>
+                                                        )}
+                                                        {!user.canEditEntries && !user.canDeleteEntries && (
+                                                            <span className="text-xs text-gray-400">No permissions</span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400">-</span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center gap-2">
@@ -230,11 +261,13 @@ export default function UsersPage() {
                                         phone: editingUser?.phone || '',
                                         role: editingUser?.role || 'barber',
                                         status: editingUser?.status || 'active',
+                                        canEditEntries: editingUser?.canEditEntries || false,
+                                        canDeleteEntries: editingUser?.canDeleteEntries || false,
                                     }}
                                     validationSchema={validationSchema}
                                     onSubmit={handleSubmit}
                                 >
-                                    {({ errors, touched }) => (
+                                    {({ errors, touched, values }) => (
                                         <Form>
                                             <div className="flex flex-col gap-4">
                                                 <Field name="name">
@@ -339,6 +372,37 @@ export default function UsersPage() {
                                                         </div>
                                                     )}
                                                 </Field>
+                                                {values.role === 'barber' && (
+                                                    <div className="space-y-3 pt-2 border-t border-gray-200">
+                                                        <p className="text-sm font-semibold text-gray-700">Entry Permissions</p>
+                                                        <Field name="canEditEntries">
+                                                            {({ field }) => (
+                                                                <label className="flex items-center gap-3 cursor-pointer">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        {...field}
+                                                                        checked={field.value}
+                                                                        className="w-5 h-5 text-primary-900 border-gray-300 rounded focus:ring-primary-900"
+                                                                    />
+                                                                    <span className="text-sm text-gray-700">Allow editing entries</span>
+                                                                </label>
+                                                            )}
+                                                        </Field>
+                                                        <Field name="canDeleteEntries">
+                                                            {({ field }) => (
+                                                                <label className="flex items-center gap-3 cursor-pointer">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        {...field}
+                                                                        checked={field.value}
+                                                                        className="w-5 h-5 text-primary-900 border-gray-300 rounded focus:ring-primary-900"
+                                                                    />
+                                                                    <span className="text-sm text-gray-700">Allow deleting entries</span>
+                                                                </label>
+                                                            )}
+                                                        </Field>
+                                                    </div>
+                                                )}
                                                 <div className="flex gap-3 pt-4">
                                                     <button
                                                         type="submit"

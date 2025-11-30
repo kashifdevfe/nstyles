@@ -1,6 +1,6 @@
 'use client';
 
-import { MdList, MdAdd } from 'react-icons/md';
+import { MdList, MdAdd, MdEdit, MdDelete } from 'react-icons/md';
 import BarberLayout from '../../../components/BarberLayout';
 import api from '../../../lib/apiClient';
 import { useRouter } from 'next/navigation';
@@ -13,23 +13,47 @@ export default function BarberDashboard() {
     const [entries, setEntries] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [userPermissions, setUserPermissions] = useState({ canEditEntries: false, canDeleteEntries: false });
+    const [deletingId, setDeletingId] = useState(null);
 
     useEffect(() => {
-        const fetchEntries = async () => {
+        const fetchData = async () => {
             if (!user?.id) return;
             try {
                 setLoading(true);
                 setError(null);
-                const data = await api.getEntries({ barberId: user.id });
-                setEntries(data || []);
+                const [entriesData, userData] = await Promise.all([
+                    api.getEntries({ barberId: user.id }),
+                    api.getMe()
+                ]);
+                setEntries(entriesData || []);
+                setUserPermissions({
+                    canEditEntries: userData?.canEditEntries || false,
+                    canDeleteEntries: userData?.canDeleteEntries || false
+                });
             } catch (err) {
                 setError(err);
             } finally {
                 setLoading(false);
             }
         };
-        fetchEntries();
+        fetchData();
     }, [user?.id]);
+
+    const handleDelete = async (entryId) => {
+        if (!confirm('Are you sure you want to delete this entry? This action cannot be undone.')) {
+            return;
+        }
+        try {
+            setDeletingId(entryId);
+            await api.deleteEntry(entryId);
+            setEntries(entries.filter(e => e.id !== entryId));
+        } catch (err) {
+            alert(err.message || 'Failed to delete entry');
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     if (loading) {
         return (
@@ -99,12 +123,17 @@ export default function BarberDashboard() {
                                         <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                             Payment Method
                                         </th>
+                                        {(userPermissions.canEditEntries || userPermissions.canDeleteEntries) && (
+                                            <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                                Actions
+                                            </th>
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {entries.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-12 text-center">
+                                            <td colSpan={userPermissions.canEditEntries || userPermissions.canDeleteEntries ? 7 : 6} className="px-6 py-12 text-center">
                                                 <div className="flex flex-col items-center gap-4">
                                                     <MdList size={64} className="text-secondary-500" />
                                                     <p className="text-secondary-600 text-lg font-medium">
@@ -161,6 +190,35 @@ export default function BarberDashboard() {
                                                         {entry.paymentMethod}
                                                     </span>
                                                 </td>
+                                                {(userPermissions.canEditEntries || userPermissions.canDeleteEntries) && (
+                                                    <td className="px-4 lg:px-6 py-3 lg:py-4 whitespace-nowrap">
+                                                        <div className="flex items-center gap-2">
+                                                            {userPermissions.canEditEntries && (
+                                                                <button
+                                                                    onClick={() => router.push(`/barber/edit-entry/${entry.id}`)}
+                                                                    className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                                                                    title="Edit Entry"
+                                                                >
+                                                                    <MdEdit size={16} />
+                                                                </button>
+                                                            )}
+                                                            {userPermissions.canDeleteEntries && (
+                                                                <button
+                                                                    onClick={() => handleDelete(entry.id)}
+                                                                    disabled={deletingId === entry.id}
+                                                                    className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+                                                                    title="Delete Entry"
+                                                                >
+                                                                    {deletingId === entry.id ? (
+                                                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                                    ) : (
+                                                                        <MdDelete size={16} />
+                                                                    )}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                )}
                                             </tr>
                                         ))
                                     )}
@@ -234,6 +292,35 @@ export default function BarberDashboard() {
                                                 {entry.paymentMethod}
                                             </span>
                                         </div>
+                                        {(userPermissions.canEditEntries || userPermissions.canDeleteEntries) && (
+                                            <div className="flex gap-2 pt-2 border-t border-gray-200">
+                                                {userPermissions.canEditEntries && (
+                                                    <button
+                                                        onClick={() => router.push(`/barber/edit-entry/${entry.id}`)}
+                                                        className="flex-1 flex items-center justify-center gap-2 bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm font-semibold"
+                                                    >
+                                                        <MdEdit size={16} />
+                                                        Edit
+                                                    </button>
+                                                )}
+                                                {userPermissions.canDeleteEntries && (
+                                                    <button
+                                                        onClick={() => handleDelete(entry.id)}
+                                                        disabled={deletingId === entry.id}
+                                                        className="flex-1 flex items-center justify-center gap-2 bg-red-500 text-white px-3 py-2 rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 text-sm font-semibold"
+                                                    >
+                                                        {deletingId === entry.id ? (
+                                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                        ) : (
+                                                            <>
+                                                                <MdDelete size={16} />
+                                                                Delete
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 ))
                             )}

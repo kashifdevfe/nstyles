@@ -211,6 +211,21 @@ export const api = {
         return result.data;
     },
 
+    updateEntry: async (id, entryData) => {
+        const result = await apiRequest(`/api/entries/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(entryData),
+        });
+        return result.data;
+    },
+
+    deleteEntry: async (id) => {
+        const result = await apiRequest(`/api/entries/${id}`, {
+            method: 'DELETE',
+        });
+        return result.data;
+    },
+
     // Reports
     getStats: async (startDate, endDate) => {
         const params = {};

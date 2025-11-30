@@ -48,6 +48,14 @@ router.post('/login', async (req, res) => {
         });
     } catch (error) {
         console.error('Login error:', error);
+        
+        // Check if it's a database connection error
+        if (error.name === 'PrismaClientInitializationError' || error.message?.includes('Can\'t reach database server')) {
+            return res.status(503).json({ 
+                error: 'Database connection failed. Please check your DATABASE_URL environment variable.' 
+            });
+        }
+        
         res.status(500).json({ error: 'Internal server error' });
     }
 });

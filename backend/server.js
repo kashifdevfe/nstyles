@@ -1,7 +1,10 @@
+// Load environment variables FIRST before any other imports
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
-import dotenv from 'dotenv';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -10,8 +13,7 @@ import serviceRoutes from './routes/services.js';
 import shopRoutes from './routes/shops.js';
 import entryRoutes from './routes/entries.js';
 import reportRoutes from './routes/reports.js';
-
-dotenv.config();
+import prisma, { testDatabaseConnection } from './utils/db.js';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -53,9 +55,27 @@ app.use('/api/shops', shopRoutes);
 app.use('/api/entries', entryRoutes);
 app.use('/api/reports', reportRoutes);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', message: 'Barber Shop API is running' });
+// Health check endpoint with database connectivity test
+app.get('/health', async (req, res) => {
+    const healthStatus = {
+        status: 'ok',
+        message: 'Barber Shop API is running',
+        database: 'unknown',
+        timestamp: new Date().toISOString()
+    };
+
+    // Test database connection with better diagnostics
+    const dbTest = await testDatabaseConnection();
+    
+    if (dbTest.connected) {
+        healthStatus.database = 'connected';
+        res.json(healthStatus);
+    } else {
+        healthStatus.database = 'disconnected';
+        healthStatus.error = dbTest.error;
+        healthStatus.troubleshooting = dbTest.suggestions || [];
+        res.status(503).json(healthStatus);
+    }
 });
 
 // Root endpoint
