@@ -266,6 +266,59 @@ export const api = {
         const result = await apiRequest(endpoint);
         return result.data;
     },
+
+    // Pay Later
+    getPayLaterEntries: async (filters = {}) => {
+        const queryParams = new URLSearchParams(filters).toString();
+        const endpoint = `/api/paylater${queryParams ? `?${queryParams}` : ''}`;
+        const result = await apiRequest(endpoint);
+        return result.data;
+    },
+
+    getUnpaidPayLater: async (filters = {}) => {
+        const queryParams = new URLSearchParams(filters).toString();
+        const endpoint = `/api/paylater/unpaid${queryParams ? `?${queryParams}` : ''}`;
+        const result = await apiRequest(endpoint);
+        return result.data;
+    },
+
+    createPayLater: async (payLaterData) => {
+        const result = await apiRequest('/api/paylater', {
+            method: 'POST',
+            body: JSON.stringify(payLaterData),
+        });
+        return result.data;
+    },
+
+    markPayLaterAsPaid: async (id) => {
+        const result = await apiRequest(`/api/paylater/${id}/mark-paid`, {
+            method: 'PUT',
+        });
+        return result.data;
+    },
+
+    getPayLater: async (id) => {
+        const result = await apiRequest(`/api/paylater/${id}`);
+        return result.data;
+    },
+
+    deletePayLater: async (id) => {
+        const result = await apiRequest(`/api/paylater/${id}`, {
+            method: 'DELETE',
+        });
+        return result.data;
+    },
+
+    deleteAllPayLater: async (isPaid) => {
+        const params = {};
+        if (isPaid !== undefined) params.isPaid = isPaid;
+        const queryParams = new URLSearchParams(params).toString();
+        const endpoint = `/api/paylater${queryParams ? `?${queryParams}` : ''}`;
+        const result = await apiRequest(endpoint, {
+            method: 'DELETE',
+        });
+        return result.data;
+    },
 };
 
 export default api;

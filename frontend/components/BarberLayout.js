@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../store/authSlice';
 import { useEffect, useState } from 'react';
-import { MdContentCut, MdList, MdAdd, MdKeyboardArrowDown, MdMenu, MdClose } from 'react-icons/md';
+import { MdContentCut, MdList, MdAdd, MdKeyboardArrowDown, MdMenu, MdClose, MdAccessTime } from 'react-icons/md';
 
 const NavItem = ({ icon, children, href, isActive, onClick }) => {
     return (
@@ -130,6 +130,17 @@ export default function BarberLayout({ children, currentPage }) {
                                 }}
                             >
                                 Add Entry
+                            </NavItem>
+                            <NavItem
+                                icon={<MdAccessTime size={20} />}
+                                href="/barber/pay-later"
+                                isActive={currentPage === 'pay-later'}
+                                onClick={() => {
+                                    router.push('/barber/pay-later');
+                                    setIsSidebarOpen(false);
+                                }}
+                            >
+                                Pay Later
                             </NavItem>
                         </div>
 

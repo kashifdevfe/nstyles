@@ -4,7 +4,7 @@ import AdminLayout from '../../../../components/AdminLayout';
 import { api } from '../../../../lib/apiClient';
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { MdAttachMoney, MdPeople, MdBarChart, MdStore, MdArrowBack } from 'react-icons/md';
+import { MdAttachMoney, MdPeople, MdBarChart, MdStore, MdArrowBack, MdDelete } from 'react-icons/md';
 
 const StatCard = ({ title, value, icon }) => {
     return (
@@ -30,6 +30,10 @@ export default function ShopReportPage() {
     const [entries, setEntries] = useState([]);
     const [loading, setLoading] = useState(true);
     const [entriesLoading, setEntriesLoading] = useState(false);
+    const [deleting, setDeleting] = useState(null);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [entryToDelete, setEntryToDelete] = useState(null);
+    const [deleteSuccess, setDeleteSuccess] = useState(false);
 
     useEffect(() => {
         const fetchShop = async () => {
@@ -90,6 +94,37 @@ export default function ShopReportPage() {
         }
     };
 
+    const handleDeleteClick = (entry) => {
+        setEntryToDelete(entry);
+        setShowDeleteModal(true);
+    };
+
+    const handleDelete = async () => {
+        if (!entryToDelete) return;
+        try {
+            setDeleting(entryToDelete.id);
+            await api.deleteEntry(entryToDelete.id);
+            // Refresh entries - this will automatically recalculate all stats:
+            // - totalRevenue (sum of all entry amounts)
+            // - totalEntries (count of entries)
+            // - avgTicket (totalRevenue / totalEntries)
+            // - paymentMethods (grouped by payment method)
+            // - barberPerformance (grouped by barber)
+            // All stats are calculated from the entries array, so they update automatically
+            await fetchEntries();
+            setShowDeleteModal(false);
+            setEntryToDelete(null);
+            setDeleteSuccess(true);
+            // Hide success message after 3 seconds
+            setTimeout(() => setDeleteSuccess(false), 3000);
+        } catch (err) {
+            console.error('Failed to delete entry:', err);
+            alert(err.message || 'Failed to delete entry');
+        } finally {
+            setDeleting(null);
+        }
+    };
+
     const allEntries = entries || [];
     const totalRevenue = allEntries.reduce((sum, entry) => sum + entry.totalAmount, 0);
     const totalEntries = allEntries.length;
@@ -144,6 +179,15 @@ export default function ShopReportPage() {
                             </div>
                         </div>
                     </div>
+
+                    {/* Success Message */}
+                    {deleteSuccess && (
+                        <div className="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                            <p className="text-green-800 font-semibold">
+                                ✓ Entry deleted successfully! All stats and calculations have been updated.
+                            </p>
+                        </div>
+                    )}
 
                     {/* Date Range Filter */}
                     <div className="p-6 bg-white rounded-xl border border-secondary-500">
@@ -276,6 +320,7 @@ export default function ShopReportPage() {
                                             <th className="px-6 py-3 text-left text-sm font-semibold text-white">Services</th>
                                             <th className="px-6 py-3 text-left text-sm font-semibold text-white">Amount</th>
                                             <th className="px-6 py-3 text-left text-sm font-semibold text-white">Payment</th>
+                                            <th className="px-6 py-3 text-left text-sm font-semibold text-white">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
@@ -303,6 +348,20 @@ export default function ShopReportPage() {
                                                         {entry.paymentMethod}
                                                     </span>
                                                 </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <button
+                                                        onClick={() => handleDeleteClick(entry)}
+                                                        disabled={deleting === entry.id}
+                                                        className="px-3 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] flex items-center justify-center gap-2"
+                                                        title="Delete entry"
+                                                    >
+                                                        {deleting === entry.id ? (
+                                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                        ) : (
+                                                            <MdDelete size={18} />
+                                                        )}
+                                                    </button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -312,6 +371,61 @@ export default function ShopReportPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Delete Entry Modal */}
+            {showDeleteModal && entryToDelete && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                                <MdDelete className="text-red-600" size={24} />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900">Delete Entry</h3>
+                        </div>
+                        <div className="mb-6">
+                            <p className="text-gray-600 mb-2">
+                                Are you sure you want to delete this entry?
+                            </p>
+                            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                                <p className="text-sm"><span className="font-semibold">Client Number:</span> {entryToDelete.clientNumber}</p>
+                                <p className="text-sm"><span className="font-semibold">Barber:</span> {entryToDelete.barber?.name || 'N/A'}</p>
+                                <p className="text-sm"><span className="font-semibold">Date:</span> {new Date(entryToDelete.date).toLocaleDateString()} at {entryToDelete.time}</p>
+                                <p className="text-sm"><span className="font-semibold">Amount:</span> £{entryToDelete.totalAmount.toFixed(2)}</p>
+                                <p className="text-sm"><span className="font-semibold">Payment:</span> {entryToDelete.paymentMethod}</p>
+                            </div>
+                            <p className="text-red-600 text-sm mt-3 font-semibold">
+                                ⚠️ This action cannot be undone. The entry will be permanently removed from the system.
+                            </p>
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleDelete}
+                                disabled={deleting === entryToDelete.id}
+                                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] flex items-center justify-center gap-2"
+                            >
+                                {deleting === entryToDelete.id ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        Deleting...
+                                    </>
+                                ) : (
+                                    'Delete'
+                                )}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowDeleteModal(false);
+                                    setEntryToDelete(null);
+                                }}
+                                disabled={deleting === entryToDelete.id}
+                                className="flex-1 px-4 py-3 bg-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </AdminLayout>
     );
 }

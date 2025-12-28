@@ -28,6 +28,19 @@ router.get('/stats', authenticate, requireAdmin, async (req, res) => {
             }
         });
 
+        // Get unpaid pay later entries for loan remaining
+        const unpaidPayLater = await prisma.payLater.findMany({
+            where: {
+                isPaid: false,
+                date: {
+                    gte: start,
+                    lte: end
+                }
+            }
+        });
+
+        const loanRemaining = unpaidPayLater.reduce((sum, e) => sum + e.amount, 0);
+
         const stats = {
             totalCustomersToday: entries.length,
             totalRevenueToday: entries.reduce((sum, e) => sum + e.totalAmount, 0),
@@ -35,7 +48,9 @@ router.get('/stats', authenticate, requireAdmin, async (req, res) => {
             cardPayments: entries.filter(e => e.paymentMethod === 'Card').reduce((sum, e) => sum + e.totalAmount, 0),
             applePayPayments: entries.filter(e => e.paymentMethod === 'Apple Pay').reduce((sum, e) => sum + e.totalAmount, 0),
             otherPayments: entries.filter(e => e.paymentMethod === 'Other').reduce((sum, e) => sum + e.totalAmount, 0),
-            totalServicesPerformed: entries.reduce((sum, e) => sum + e.entryServices.length, 0)
+            payLaterPayments: entries.filter(e => e.paymentMethod === 'Pay Later').reduce((sum, e) => sum + e.totalAmount, 0),
+            totalServicesPerformed: entries.reduce((sum, e) => sum + e.entryServices.length, 0),
+            loanRemaining: loanRemaining
         };
 
         res.json(stats);
@@ -80,6 +95,19 @@ router.get('/daily', authenticate, requireAdmin, async (req, res) => {
             }
         });
 
+        // Get unpaid pay later entries for loan remaining
+        const unpaidPayLater = await prisma.payLater.findMany({
+            where: {
+                isPaid: false,
+                date: {
+                    gte: start,
+                    lte: end
+                }
+            }
+        });
+
+        const loanRemaining = unpaidPayLater.reduce((sum, e) => sum + e.amount, 0);
+
         // Calculate service usage
         const serviceUsageMap = {};
         entries.forEach(entry => {
@@ -101,7 +129,9 @@ router.get('/daily', authenticate, requireAdmin, async (req, res) => {
             cardPayments: entries.filter(e => e.paymentMethod === 'Card').reduce((sum, e) => sum + e.totalAmount, 0),
             applePayPayments: entries.filter(e => e.paymentMethod === 'Apple Pay').reduce((sum, e) => sum + e.totalAmount, 0),
             otherPayments: entries.filter(e => e.paymentMethod === 'Other').reduce((sum, e) => sum + e.totalAmount, 0),
-            serviceUsage
+            payLaterPayments: entries.filter(e => e.paymentMethod === 'Pay Later').reduce((sum, e) => sum + e.totalAmount, 0),
+            serviceUsage,
+            loanRemaining: loanRemaining
         };
 
         res.json(report);
@@ -147,6 +177,19 @@ router.get('/weekly', authenticate, requireAdmin, async (req, res) => {
             }
         });
 
+        // Get unpaid pay later entries for loan remaining
+        const unpaidPayLater = await prisma.payLater.findMany({
+            where: {
+                isPaid: false,
+                date: {
+                    gte: start,
+                    lte: end
+                }
+            }
+        });
+
+        const loanRemaining = unpaidPayLater.reduce((sum, e) => sum + e.amount, 0);
+
         // Calculate most used service
         const serviceUsageMap = {};
         entries.forEach(entry => {
@@ -189,9 +232,11 @@ router.get('/weekly', authenticate, requireAdmin, async (req, res) => {
             cardPayments: entries.filter(e => e.paymentMethod === 'Card').reduce((sum, e) => sum + e.totalAmount, 0),
             applePayPayments: entries.filter(e => e.paymentMethod === 'Apple Pay').reduce((sum, e) => sum + e.totalAmount, 0),
             otherPayments: entries.filter(e => e.paymentMethod === 'Other').reduce((sum, e) => sum + e.totalAmount, 0),
+            payLaterPayments: entries.filter(e => e.paymentMethod === 'Pay Later').reduce((sum, e) => sum + e.totalAmount, 0),
             mostUsedService,
             serviceUsage,
-            dailySales
+            dailySales,
+            loanRemaining: loanRemaining
         });
     } catch (error) {
         console.error('Get weekly report error:', error);
@@ -235,6 +280,19 @@ router.get('/monthly', authenticate, requireAdmin, async (req, res) => {
                 }
             }
         });
+
+        // Get unpaid pay later entries for loan remaining
+        const unpaidPayLater = await prisma.payLater.findMany({
+            where: {
+                isPaid: false,
+                date: {
+                    gte: start,
+                    lte: end
+                }
+            }
+        });
+
+        const loanRemaining = unpaidPayLater.reduce((sum, e) => sum + e.amount, 0);
 
         // Calculate top barber
         const barberRevenueMap = {};
@@ -294,10 +352,12 @@ router.get('/monthly', authenticate, requireAdmin, async (req, res) => {
             cardPayments: entries.filter(e => e.paymentMethod === 'Card').reduce((sum, e) => sum + e.totalAmount, 0),
             applePayPayments: entries.filter(e => e.paymentMethod === 'Apple Pay').reduce((sum, e) => sum + e.totalAmount, 0),
             otherPayments: entries.filter(e => e.paymentMethod === 'Other').reduce((sum, e) => sum + e.totalAmount, 0),
+            payLaterPayments: entries.filter(e => e.paymentMethod === 'Pay Later').reduce((sum, e) => sum + e.totalAmount, 0),
             topBarber,
             mostRequestedService,
             serviceUsage,
-            dailySales
+            dailySales,
+            loanRemaining: loanRemaining
         });
     } catch (error) {
         console.error('Get monthly report error:', error);

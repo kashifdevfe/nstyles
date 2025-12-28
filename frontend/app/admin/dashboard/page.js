@@ -1,6 +1,6 @@
 'use client';
 
-import { MdAttachMoney, MdPeople, MdContentCut, MdBarChart, MdDateRange } from 'react-icons/md';
+import { MdAttachMoney, MdPeople, MdContentCut, MdBarChart, MdDateRange, MdAccessTime } from 'react-icons/md';
 import AdminLayout from '../../../components/AdminLayout';
 import { api } from '../../../lib/apiClient';
 import { useState, useEffect } from 'react';
@@ -206,7 +206,7 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-6 sm:mb-8">
                     <StatCard
                         title="Total Revenue"
                         stat={`£${stats?.totalRevenueToday?.toFixed(2) || '0.00'}`}
@@ -226,6 +226,12 @@ export default function AdminDashboard() {
                         title="Avg. Ticket"
                         stat={`£${stats?.totalCustomersToday ? (stats.totalRevenueToday / stats.totalCustomersToday).toFixed(2) : '0.00'}`}
                         icon={<MdBarChart size={32} />}
+                    />
+                    <StatCard
+                        title="Loan Remaining"
+                        stat={`£${(stats?.loanRemaining || 0).toFixed(2)}`}
+                        icon={<MdAccessTime size={32} />}
+                        helpText="Unpaid Pay Later"
                     />
                 </div>
 

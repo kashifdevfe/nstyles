@@ -314,7 +314,7 @@ export default function ReportsPage() {
                     {/* Daily Report */}
                     {activeTab === 'daily' && (
                         <div className="flex flex-col gap-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                                 <StatBox
                                     label="Total Customers"
                                     value={dailyReport?.totalCustomers || 0}
@@ -334,6 +334,11 @@ export default function ReportsPage() {
                                     label="Card Payments"
                                     value={`£${(dailyReport?.cardPayments || 0).toFixed(2)}`}
                                     color="#000000"
+                                />
+                                <StatBox
+                                    label="Loan Remaining"
+                                    value={`£${(dailyReport?.loanRemaining || 0).toFixed(2)}`}
+                                    color="#f97316"
                                 />
                             </div>
 
@@ -362,6 +367,12 @@ export default function ReportsPage() {
                                         <p className="text-sm text-secondary-500">Other</p>
                                         <p className="text-xl font-bold text-primary-900">
                                             £{(dailyReport?.otherPayments || 0).toFixed(2)}
+                                        </p>
+                                    </div>
+                                    <div className="text-center p-4 bg-orange-50 rounded-lg border border-orange-500">
+                                        <p className="text-sm text-secondary-500">Pay Later (Paid)</p>
+                                        <p className="text-xl font-bold text-primary-900">
+                                            £{(dailyReport?.payLaterPayments || 0).toFixed(2)}
                                         </p>
                                     </div>
                                 </div>
@@ -401,7 +412,7 @@ export default function ReportsPage() {
                                     {new Date(startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} - {new Date(endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                                 </span>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                                 <StatBox
                                     label="Total Customers"
                                     value={weeklyReport?.totalCustomers || 0}
@@ -421,6 +432,11 @@ export default function ReportsPage() {
                                     label="Card Payments"
                                     value={`£${(weeklyReport?.cardPayments || 0).toFixed(2)}`}
                                     color="#000000"
+                                />
+                                <StatBox
+                                    label="Loan Remaining"
+                                    value={`£${(weeklyReport?.loanRemaining || 0).toFixed(2)}`}
+                                    color="#f97316"
                                 />
                             </div>
 
@@ -449,6 +465,12 @@ export default function ReportsPage() {
                                         <p className="text-sm text-secondary-500">Other</p>
                                         <p className="text-xl font-bold text-primary-900">
                                             £{(weeklyReport?.otherPayments || 0).toFixed(2)}
+                                        </p>
+                                    </div>
+                                    <div className="text-center p-4 bg-orange-50 rounded-lg border border-orange-500">
+                                        <p className="text-sm text-secondary-500">Pay Later (Paid)</p>
+                                        <p className="text-xl font-bold text-primary-900">
+                                            £{(weeklyReport?.payLaterPayments || 0).toFixed(2)}
                                         </p>
                                     </div>
                                 </div>
@@ -488,7 +510,7 @@ export default function ReportsPage() {
                                     {new Date(selectedMonth + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
                                 </span>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                                 <StatBox
                                     label="Total Customers"
                                     value={monthlyReport?.totalCustomers || 0}
@@ -508,6 +530,11 @@ export default function ReportsPage() {
                                     label="Card Payments"
                                     value={`£${(monthlyReport?.cardPayments || 0).toFixed(2)}`}
                                     color="#000000"
+                                />
+                                <StatBox
+                                    label="Loan Remaining"
+                                    value={`£${(monthlyReport?.loanRemaining || 0).toFixed(2)}`}
+                                    color="#f97316"
                                 />
                             </div>
 
@@ -536,6 +563,12 @@ export default function ReportsPage() {
                                         <p className="text-sm text-secondary-500">Other</p>
                                         <p className="text-xl font-bold text-primary-900">
                                             £{(monthlyReport?.otherPayments || 0).toFixed(2)}
+                                        </p>
+                                    </div>
+                                    <div className="text-center p-4 bg-orange-50 rounded-lg border border-orange-500">
+                                        <p className="text-sm text-secondary-500">Pay Later (Paid)</p>
+                                        <p className="text-xl font-bold text-primary-900">
+                                            £{(monthlyReport?.payLaterPayments || 0).toFixed(2)}
                                         </p>
                                     </div>
                                 </div>

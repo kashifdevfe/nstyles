@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../store/authSlice';
 import { useEffect, useState } from 'react';
-import { MdDashboard, MdStore, MdContentCut, MdPeople, MdBusiness, MdBarChart, MdKeyboardArrowDown, MdMenu, MdClose } from 'react-icons/md';
+import { MdDashboard, MdStore, MdContentCut, MdPeople, MdBusiness, MdBarChart, MdKeyboardArrowDown, MdMenu, MdClose, MdAccessTime } from 'react-icons/md';
 
 const NavItem = ({ icon, children, href, isActive, onClick }) => {
     return (
@@ -171,6 +171,17 @@ export default function AdminLayout({ children, currentPage }) {
                                 }}
                             >
                                 Reports
+                            </NavItem>
+                            <NavItem
+                                icon={<MdAccessTime size={20} />}
+                                href="/admin/pay-later"
+                                isActive={currentPage === 'pay-later'}
+                                onClick={() => {
+                                    router.push('/admin/pay-later');
+                                    setIsSidebarOpen(false);
+                                }}
+                            >
+                                Pay Later
                             </NavItem>
                         </div>
 

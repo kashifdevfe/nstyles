@@ -13,6 +13,7 @@ import serviceRoutes from './routes/services.js';
 import shopRoutes from './routes/shops.js';
 import entryRoutes from './routes/entries.js';
 import reportRoutes from './routes/reports.js';
+import payLaterRoutes from './routes/paylater.js';
 import prisma, { testDatabaseConnection } from './utils/db.js';
 
 const app = express();
@@ -54,6 +55,7 @@ app.use('/api/services', serviceRoutes);
 app.use('/api/shops', shopRoutes);
 app.use('/api/entries', entryRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/paylater', payLaterRoutes);
 
 // Health check endpoint with database connectivity test
 app.get('/health', async (req, res) => {
@@ -89,7 +91,8 @@ app.get('/', (req, res) => {
             services: '/api/services',
             shops: '/api/shops',
             entries: '/api/entries',
-            reports: '/api/reports'
+            reports: '/api/reports',
+            paylater: '/api/paylater'
         }
     });
 });

@@ -13,6 +13,16 @@ const validationSchema = Yup.object({
     time: Yup.string().required('Time is required'),
     serviceIds: Yup.array().min(1, 'Select at least one service').required('Services are required'),
     paymentMethod: Yup.string().required('Payment method is required'),
+    customerName: Yup.string().when('paymentMethod', {
+        is: 'Pay Later',
+        then: (schema) => schema.required('Customer name is required for Pay Later'),
+        otherwise: (schema) => schema.notRequired()
+    }),
+    customerPhone: Yup.string().when('paymentMethod', {
+        is: 'Pay Later',
+        then: (schema) => schema.required('Customer phone is required for Pay Later'),
+        otherwise: (schema) => schema.notRequired()
+    }),
 });
 
 export default function AddEntryPage() {
@@ -54,16 +64,35 @@ export default function AddEntryPage() {
             setError('');
             setSuccess('');
             setLoading(true);
-            const data = await api.createEntry({
-                barberId: user.id,
-                serviceIds: values.serviceIds,
-                date: values.date,
-                time: values.time,
-                paymentMethod: values.paymentMethod,
-            });
-            await new Promise(resolve => setTimeout(resolve, 500)); // Show loader
 
-            setSuccess(`Entry Created! Client Number: ${data.clientNumber} | Total: £${data.totalAmount.toFixed(2)}`);
+            if (values.paymentMethod === 'Pay Later') {
+                // Create pay later entry
+                const data = await api.createPayLater({
+                    barberId: user.id,
+                    customerName: values.customerName,
+                    customerPhone: values.customerPhone,
+                    amount: totalAmount,
+                    date: values.date,
+                    time: values.time,
+                    serviceIds: values.serviceIds,
+                });
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                setSuccess(`Pay Later Entry Created! Customer: ${data.customerName} | Amount: £${data.amount.toFixed(2)}`);
+            } else {
+                // Create regular entry
+                const data = await api.createEntry({
+                    barberId: user.id,
+                    serviceIds: values.serviceIds,
+                    date: values.date,
+                    time: values.time,
+                    paymentMethod: values.paymentMethod,
+                });
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                setSuccess(`Entry Created! Client Number: ${data.clientNumber} | Total: £${data.totalAmount.toFixed(2)}`);
+            }
+
             resetForm();
             setSelectedServices([]);
             setTotalAmount(0);
@@ -111,6 +140,8 @@ export default function AddEntryPage() {
                                 time: getCurrentTime(),
                                 serviceIds: [],
                                 paymentMethod: 'Cash',
+                                customerName: '',
+                                customerPhone: '',
                             }}
                             validationSchema={validationSchema}
                             onSubmit={handleSubmit}
@@ -260,23 +291,76 @@ export default function AddEntryPage() {
                                                         Payment Method *
                                                     </label>
                                                     <div className="flex flex-col gap-3">
-                                                        {['Cash', 'Card', 'Apple Pay', 'Other'].map((method) => (
+                                                        {['Cash', 'Card', 'Apple Pay', 'Other', 'Pay Later'].map((method) => (
                                                             <label
                                                                 key={method}
-                                                                className="flex items-center gap-3 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-primary-900 transition-colors"
+                                                                className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-colors ${
+                                                                    method === 'Pay Later'
+                                                                        ? 'border-orange-300 hover:border-orange-500 bg-orange-50'
+                                                                        : 'border-gray-200 hover:border-primary-900'
+                                                                }`}
                                                             >
                                                                 <input
                                                                     type="radio"
                                                                     {...field}
                                                                     value={method}
                                                                     checked={values.paymentMethod === method}
-                                                                    onChange={(e) => setFieldValue('paymentMethod', e.target.value)}
+                                                                    onChange={(e) => {
+                                                                        setFieldValue('paymentMethod', e.target.value);
+                                                                        if (e.target.value !== 'Pay Later') {
+                                                                            setFieldValue('customerName', '');
+                                                                            setFieldValue('customerPhone', '');
+                                                                        }
+                                                                    }}
                                                                     className="w-5 h-5 text-primary-900 border-gray-300 focus:ring-primary-900"
                                                                 />
                                                                 <span className="text-lg font-semibold">{method}</span>
                                                             </label>
                                                         ))}
                                                     </div>
+                                                    {values.paymentMethod === 'Pay Later' && (
+                                                        <div className="mt-4 p-4 bg-orange-50 border-2 border-orange-200 rounded-xl space-y-4">
+                                                            <p className="text-sm font-semibold text-orange-900 mb-3">
+                                                                Customer Information for Pay Later
+                                                            </p>
+                                                            <Field name="customerName">
+                                                                {({ field }) => (
+                                                                    <div>
+                                                                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                                                            Customer Name *
+                                                                        </label>
+                                                                        <input
+                                                                            {...field}
+                                                                            type="text"
+                                                                            placeholder="Enter customer name"
+                                                                            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                        />
+                                                                        {errors.customerName && touched.customerName && (
+                                                                            <p className="text-red-500 text-xs mt-1">{errors.customerName}</p>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </Field>
+                                                            <Field name="customerPhone">
+                                                                {({ field }) => (
+                                                                    <div>
+                                                                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                                                            Customer Phone Number *
+                                                                        </label>
+                                                                        <input
+                                                                            {...field}
+                                                                            type="tel"
+                                                                            placeholder="Enter phone number"
+                                                                            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                        />
+                                                                        {errors.customerPhone && touched.customerPhone && (
+                                                                            <p className="text-red-500 text-xs mt-1">{errors.customerPhone}</p>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </Field>
+                                                        </div>
+                                                    )}
                                                     {errors.paymentMethod && touched.paymentMethod && (
                                                         <p className="text-red-500 text-xs mt-1">{errors.paymentMethod}</p>
                                                     )}
